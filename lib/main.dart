@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+// TAMBAHAN PENTING: Import ini untuk memuat data lokal (Bahasa)
+import 'package:intl/date_symbol_data_local.dart'; 
 import 'dart:async';
 import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // --- PERBAIKAN DI SINI ---
+  // Kita load dulu data bahasa Indonesia sebelum aplikasi jalan
+  await initializeDateFormatting('id_ID', null);
+  
   await NotificationService().initNotification();
-  await NotificationService().scheduleEyeDropReminders(); // Jalankan jadwal otomatis
+  await NotificationService().scheduleEyeDropReminders(); 
   
   runApp(const JagaNetraApp());
 }
@@ -46,15 +53,14 @@ class _HomePageState extends State<HomePage> {
   String _timeString = "";
   late Timer _timer;
 
-  // Jadwal Tetes Mata (Harus sinkron dengan notification_service)
+  // Jadwal Tetes Mata
   final List<int> scheduleHours = [6, 9, 12, 15, 18, 21];
 
   @override
   void initState() {
-    _timeString = _formatTime(DateTime.now());
-    // Update jam setiap detik agar real-time
-    _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) => _getTime());
     super.initState();
+    _timeString = _formatTime(DateTime.now());
+    _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) => _getTime());
   }
 
   void _getTime() {
@@ -80,7 +86,7 @@ class _HomePageState extends State<HomePage> {
     // Mencari jadwal selanjutnya
     int nextSchedule = scheduleHours.firstWhere(
       (h) => h > DateTime.now().hour,
-      orElse: () => scheduleHours[0], // Jika lewat jam 21, kembali ke jam 6 besok
+      orElse: () => scheduleHours[0], 
     );
 
     return Scaffold(
@@ -156,6 +162,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   Text(
+                    // Format Tanggal Indonesia
                     DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(DateTime.now()),
                     style: GoogleFonts.lato(
                       color: Colors.white70,
@@ -230,9 +237,9 @@ class _HomePageState extends State<HomePage> {
               color: Colors.white.withOpacity(0.9),
               shape: BoxShape.circle,
             ),
-            child: Icon(
+            child: const Icon(
               Icons.medication_liquid,
-              color: const Color(0xFF00695C),
+              color: Color(0xFF00695C),
               size: 32,
             ),
           ),
