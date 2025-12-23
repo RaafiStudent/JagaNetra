@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Import Memori
 import 'dart:async';
 import 'services/notification_service.dart';
 
@@ -24,11 +25,11 @@ class JagaNetraApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF8F9FD), // Putih Kebiruan (Sangat Bersih)
+        scaffoldBackgroundColor: const Color(0xFFF8F9FD),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2D3142), // Royal Dark Blue
+          seedColor: const Color(0xFF2D3142),
           primary: const Color(0xFF2D3142),
-          secondary: const Color(0xFF4F8FC0), // Soft Blue Accent
+          secondary: const Color(0xFF4F8FC0),
           surface: Colors.white,
         ),
       ),
@@ -47,19 +48,70 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String _timeString = "";
   late Timer _timer;
+  
+  // Data Logic
   Set<int> completedSchedules = {};
   final List<int> scheduleHours = [6, 9, 12, 15, 18, 21];
+  final String _storageKey = 'completed_schedules';
+  final String _dateKey = 'last_date_opened';
 
   @override
   void initState() {
     super.initState();
     _timeString = _formatTime(DateTime.now());
     _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) => _getTime());
+    
+    // Panggil fungsi muat data saat aplikasi dibuka
+    _loadData();
   }
+
+  // --- LOGIC PENYIMPANAN DATA PINTAR ---
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // 1. Cek Tanggal Terakhir dibuka
+    String lastDate = prefs.getString(_dateKey) ?? "";
+    String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    // 2. Jika hari sudah berganti, RESET semua data
+    if (lastDate != todayDate) {
+      await prefs.setString(_dateKey, todayDate);
+      await prefs.setStringList(_storageKey, []); // Kosongkan list
+      setState(() {
+        completedSchedules = {};
+      });
+    } else {
+      // 3. Jika hari masih sama, muat data yang tersimpan
+      List<String>? savedList = prefs.getStringList(_storageKey);
+      if (savedList != null) {
+        setState(() {
+          completedSchedules = savedList.map((e) => int.parse(e)).toSet();
+        });
+      }
+    }
+  }
+
+  Future<void> _saveData() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Simpan list angka jam sebagai List<String>
+    List<String> stringList = completedSchedules.map((e) => e.toString()).toList();
+    await prefs.setStringList(_storageKey, stringList);
+    
+    // Update tanggal hari ini juga untuk memastikan
+    String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    await prefs.setString(_dateKey, todayDate);
+  }
+  // -------------------------------------
 
   void _getTime() {
     final DateTime now = DateTime.now();
     final String formattedDateTime = _formatTime(now);
+    
+    // Logic tambahan: Cek reset otomatis tepat jam 00:00 saat aplikasi terbuka
+    if (formattedDateTime == "00:00" && completedSchedules.isNotEmpty) {
+      _loadData(); // Trigger reset
+    }
+
     if (mounted) {
       setState(() {
         _timeString = formattedDateTime;
@@ -79,6 +131,8 @@ class _HomePageState extends State<HomePage> {
         completedSchedules.add(hour);
       }
     });
+    // Simpan data setiap kali ada perubahan
+    _saveData();
   }
 
   @override
@@ -130,7 +184,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-                  // Avatar Profile / Icon Mata Minimalis
                   Container(
                     width: 45,
                     height: 45,
@@ -217,7 +270,6 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 35),
 
-              // --- TITLE SECTION ---
               Text(
                 "Rencana Pengobatan",
                 style: GoogleFonts.poppins(
@@ -255,12 +307,9 @@ class _HomePageState extends State<HomePage> {
 
     Color textColor = isCompleted ? Colors.grey : const Color(0xFF2D3142);
     Color cardColor = Colors.white;
-    double elevation = 0;
     
-    // Logic tampilan berdasarkan status
     if (isNext) {
       cardColor = Colors.white;
-      elevation = 10; // Efek melayang untuk jadwal berikutnya
     }
 
     return GestureDetector(
@@ -286,12 +335,11 @@ class _HomePageState extends State<HomePage> {
               ),
           ],
           border: isNext 
-            ? Border.all(color: const Color(0xFF4F8FC0), width: 1) // Outline biru tipis
+            ? Border.all(color: const Color(0xFF4F8FC0), width: 1)
             : Border.all(color: Colors.transparent),
         ),
         child: Row(
           children: [
-            // Jam
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -306,7 +354,6 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(width: 15),
             
-            // Teks
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,13 +379,12 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
-            // Checkbox Circle Custom
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: isCompleted ? const Color(0xFF4CAF50) : Colors.transparent, // Hijau lembut saat done
+                color: isCompleted ? const Color(0xFF4CAF50) : Colors.transparent,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: isCompleted ? Colors.transparent : Colors.grey[300]!,
