@@ -24,10 +24,12 @@ class JagaNetraApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF8F9FD), // Putih Kebiruan (Sangat Bersih)
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF00695C),
-          secondary: const Color(0xFFD4AF37),
-          background: const Color(0xFFF8F9FA), // Lebih putih bersih
+          seedColor: const Color(0xFF2D3142), // Royal Dark Blue
+          primary: const Color(0xFF2D3142),
+          secondary: const Color(0xFF4F8FC0), // Soft Blue Accent
+          surface: Colors.white,
         ),
       ),
       home: const HomePage(),
@@ -45,11 +47,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String _timeString = "";
   late Timer _timer;
-  
-  // Logic untuk menyimpan status checklist (sementara di RAM)
-  // Nanti kita simpan ke database di langkah berikutnya
   Set<int> completedSchedules = {};
-
   final List<int> scheduleHours = [6, 9, 12, 15, 18, 21];
 
   @override
@@ -73,7 +71,6 @@ class _HomePageState extends State<HomePage> {
     return DateFormat('HH:mm').format(dateTime);
   }
 
-  // Fungsi saat tombol checklist ditekan
   void _toggleSchedule(int hour) {
     setState(() {
       if (completedSchedules.contains(hour)) {
@@ -98,282 +95,259 @@ class _HomePageState extends State<HomePage> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5), // Abu-abu sangat muda (premium feel)
-      body: Stack(
-        children: [
-          // Background Header Design
-          Container(
-            height: 300,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF004D40), Color(0xFF00695C)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(40),
-                bottomRight: Radius.circular(40),
-              ),
-            ),
-          ),
-          
-          SafeArea(
-            child: Column(
-              children: [
-                // --- CUSTOM HEADER ---
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  child: Column(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 30),
+              
+              // --- HEADER CLEAN & MODERN ---
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Assalamualaikum,",
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "Penjaga Mamah",
-                                style: GoogleFonts.playfairDisplay(
-                                  color: Colors.white,
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(15),
-                              border: Border.all(color: Colors.white.withOpacity(0.2)),
-                            ),
-                            child: const Icon(Icons.notifications_active_outlined, color: Colors.white),
-                          )
-                        ],
+                      Text(
+                        DateFormat('EEEE, d MMM', 'id_ID').format(DateTime.now()),
+                        style: GoogleFonts.poppins(
+                          color: Colors.grey[500],
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                      const SizedBox(height: 30),
-                      // Jam Digital Super Clean
-                      Center(
-                        child: Column(
-                          children: [
-                            Text(
-                              _timeString,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: Colors.white,
-                                fontSize: 64,
-                                fontWeight: FontWeight.w600,
-                                height: 1,
-                              ),
-                            ),
-                            Text(
-                              DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(DateTime.now()),
-                              style: GoogleFonts.plusJakartaSans(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 16,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ],
+                      const SizedBox(height: 4),
+                      Text(
+                        "JagaNetra",
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF2D3142), // Dark Slate
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
                         ),
                       ),
                     ],
                   ),
-                ),
-
-                const SizedBox(height: 10),
-
-                // --- CONTENT SCROLLABLE ---
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: ListView(
-                      clipBehavior: Clip.none, // Agar shadow tidak terpotong
-                      children: [
-                        // Highlight Card
-                        _buildHeroCard(nextSchedule),
-                        
-                        const SizedBox(height: 30),
-                        
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Jadwal Hari Ini",
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF1A1A1A),
-                              ),
-                            ),
-                            Text(
-                              "${completedSchedules.length}/${scheduleHours.length} Selesai",
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF00695C),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 15),
-                        
-                        // List Jadwal Interactive
-                        ...scheduleHours.map((hour) => _buildScheduleItem(hour)).toList(),
-                        
-                        const SizedBox(height: 50), // Spasi bawah
-                      ],
+                  // Avatar Profile / Icon Mata Minimalis
+                  Container(
+                    width: 45,
+                    height: 45,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEDF1F7),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.remove_red_eye_outlined,
+                      color: Color(0xFF2D3142),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+                ],
+              ),
 
-  // Widget Hero Card (Kartu Emas)
-  Widget _buildHeroCard(int hour) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFD4AF37), Color(0xFFF9DF86)], // Gold Gradient
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFD4AF37).withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.medication,
-              color: Color(0xFF00695C),
-              size: 32,
-            ),
-          ),
-          const SizedBox(width: 20),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+              const SizedBox(height: 30),
+
+              // --- HERO CARD (GLASSY BLUE) ---
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(25),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF2D3142), // Dark Navy
+                      Color(0xFF4C5D7D), // Lighter Navy
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2D3142).withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            "Jadwal Berikutnya",
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const Icon(Icons.notifications_active, color: Colors.white70, size: 20),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      _timeString,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 48,
+                        fontWeight: FontWeight.w600,
+                        height: 1,
+                      ),
+                    ),
+                    Text(
+                      "Target: Pukul $nextSchedule:00",
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 35),
+
+              // --- TITLE SECTION ---
               Text(
-                "Jadwal Selanjutnya",
-                style: GoogleFonts.plusJakartaSans(
-                  color: const Color(0xFF004D40),
-                  fontSize: 14,
+                "Rencana Pengobatan",
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFF2D3142),
+                  fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                "$hour:00 WIB",
-                style: GoogleFonts.plusJakartaSans(
-                  color: const Color(0xFF004D40),
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
+              const SizedBox(height: 15),
+
+              // --- SCROLLABLE LIST ---
+              Expanded(
+                child: ListView.separated(
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: scheduleHours.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final hour = scheduleHours[index];
+                    return _buildModernTaskTile(hour);
+                  },
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  // Widget Item List Jadwal (Interactive & Animated)
-  Widget _buildScheduleItem(int hour) {
+  Widget _buildModernTaskTile(int hour) {
     bool isCompleted = completedSchedules.contains(hour);
     bool isPassed = DateTime.now().hour >= hour;
     bool isNext = !isPassed && !isCompleted && 
         (hour == scheduleHours.firstWhere((h) => h > DateTime.now().hour, orElse: () => 24));
 
+    Color textColor = isCompleted ? Colors.grey : const Color(0xFF2D3142);
+    Color cardColor = Colors.white;
+    double elevation = 0;
+    
+    // Logic tampilan berdasarkan status
+    if (isNext) {
+      cardColor = Colors.white;
+      elevation = 10; // Efek melayang untuk jadwal berikutnya
+    }
+
     return GestureDetector(
       onTap: () => _toggleSchedule(hour),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
-          color: isCompleted ? const Color(0xFFE0F2F1) : Colors.white,
+          color: cardColor,
           borderRadius: BorderRadius.circular(20),
-          border: isNext 
-              ? Border.all(color: const Color(0xFF00695C), width: 1.5) 
-              : Border.all(color: Colors.transparent),
           boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.05),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            ),
+            if (isNext)
+              BoxShadow(
+                color: const Color(0xFF4F8FC0).withOpacity(0.15),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              )
+            else
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
           ],
+          border: isNext 
+            ? Border.all(color: const Color(0xFF4F8FC0), width: 1) // Outline biru tipis
+            : Border.all(color: Colors.transparent),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.access_time_rounded,
-                  color: isCompleted ? const Color(0xFF00695C) : Colors.grey[400],
-                  size: 20,
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  "$hour:00",
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 18,
-                    fontWeight: isCompleted || isNext ? FontWeight.bold : FontWeight.w500,
-                    color: isCompleted 
-                        ? const Color(0xFF00695C) 
-                        : (isPassed ? Colors.grey : const Color(0xFF1A1A1A)),
-                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-              ],
+            // Jam
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isCompleted ? Colors.grey[100] : const Color(0xFFEDF1F7),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.access_time_filled_rounded,
+                size: 20,
+                color: isCompleted ? Colors.grey : const Color(0xFF4F8FC0),
+              ),
             ),
+            const SizedBox(width: 15),
             
-            // Checkbox Custom dengan Animasi
+            // Teks
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Tetes Mata Obat",
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    "$hour:00 WIB",
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                      decoration: isCompleted ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Checkbox Circle Custom
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
-              height: 30,
-              width: 30,
+              width: 28,
+              height: 28,
               decoration: BoxDecoration(
-                color: isCompleted ? const Color(0xFF00695C) : Colors.transparent,
+                color: isCompleted ? const Color(0xFF4CAF50) : Colors.transparent, // Hijau lembut saat done
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isCompleted ? const Color(0xFF00695C) : Colors.grey[300]!,
+                  color: isCompleted ? Colors.transparent : Colors.grey[300]!,
                   width: 2,
                 ),
               ),
-              child: isCompleted
-                  ? const Icon(Icons.check, color: Colors.white, size: 20)
-                  : null,
+              child: isCompleted 
+                ? const Icon(Icons.check, size: 16, color: Colors.white)
+                : null,
             ),
           ],
         ),
