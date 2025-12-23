@@ -87,3 +87,16 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+dependencies:
+  flutter:
+    sdk: flutter
+  # Untuk notifikasi lokal (alarm)
+  flutter_local_notifications: ^17.0.0
+  # Untuk pengaturan zona waktu (WIB/dll)
+  timezone: ^0.9.0
+  # Untuk format tanggal yang rapi
+  intl: ^0.18.0
+  # Untuk Font mewah (Google Fonts)
+  google_fonts: ^6.1.0
+  # Ikon-ikon modern
+  cupertino_icons: ^1.0.2
