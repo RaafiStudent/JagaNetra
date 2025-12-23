@@ -1,121 +1,323 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'dart:async';
+import 'services/notification_service.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService().initNotification();
+  await NotificationService().scheduleEyeDropReminders(); // Jalankan jadwal otomatis
+  
+  runApp(const JagaNetraApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class JagaNetraApp extends StatelessWidget {
+  const JagaNetraApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'JagaNetra',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+        // Palet Warna Mewah: Emerald & Gold
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF00695C), // Emerald Green
+          secondary: const Color(0xFFD4AF37), // Gold Metallic
+          background: const Color(0xFFF5F7FA), // Soft White
+        ),
+        textTheme: GoogleFonts.latoTextTheme(),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const HomePage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _HomePageState extends State<HomePage> {
+  String _timeString = "";
+  late Timer _timer;
 
-  void _incrementCounter() {
+  // Jadwal Tetes Mata (Harus sinkron dengan notification_service)
+  final List<int> scheduleHours = [6, 9, 12, 15, 18, 21];
+
+  @override
+  void initState() {
+    _timeString = _formatTime(DateTime.now());
+    // Update jam setiap detik agar real-time
+    _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) => _getTime());
+    super.initState();
+  }
+
+  void _getTime() {
+    final DateTime now = DateTime.now();
+    final String formattedDateTime = _formatTime(now);
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _timeString = formattedDateTime;
     });
+  }
+
+  String _formatTime(DateTime dateTime) {
+    return DateFormat('HH:mm').format(dateTime);
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    // Mencari jadwal selanjutnya
+    int nextSchedule = scheduleHours.firstWhere(
+      (h) => h > DateTime.now().hour,
+      orElse: () => scheduleHours[0], // Jika lewat jam 21, kembali ke jam 6 besok
+    );
+
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+      backgroundColor: Theme.of(context).colorScheme.background,
+      body: SafeArea(
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+            // --- HEADER MEWAH ---
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Halo, Penjaga Mamah",
+                            style: GoogleFonts.montserrat(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            "JagaNetra",
+                            style: GoogleFonts.playfairDisplay(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.visibility,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                  // Jam Digital Besar
+                  Text(
+                    _timeString,
+                    style: GoogleFonts.montserrat(
+                      color: Colors.white,
+                      fontSize: 60,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                  Text(
+                    DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(DateTime.now()),
+                    style: GoogleFonts.lato(
+                      color: Colors.white70,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // --- KONTEN UTAMA ---
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: ListView(
+                  children: [
+                    // Kartu Pengingat Selanjutnya
+                    _buildNextScheduleCard(nextSchedule),
+                    
+                    const SizedBox(height: 20),
+                    Text(
+                      "Jadwal Tetes Mata Hari Ini",
+                      style: GoogleFonts.playfairDisplay(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    
+                    // List Jadwal
+                    ...scheduleHours.map((hour) => _buildScheduleItem(hour)).toList(),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    );
+  }
+
+  // Widget Kartu Highlight (Mewah)
+  Widget _buildNextScheduleCard(int hour) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFD4AF37), // Gold
+            const Color(0xFFF9DF86), // Light Gold
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFD4AF37).withOpacity(0.4),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.medication_liquid,
+              color: const Color(0xFF00695C),
+              size: 32,
+            ),
+          ),
+          const SizedBox(width: 15),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Jadwal Selanjutnya",
+                style: GoogleFonts.lato(
+                  color: const Color(0xFF004D40),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                "$hour:00 WIB",
+                style: GoogleFonts.montserrat(
+                  color: const Color(0xFF004D40),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Widget Item List Jadwal
+  Widget _buildScheduleItem(int hour) {
+    bool isPassed = DateTime.now().hour >= hour;
+    bool isNext = DateTime.now().hour < hour && 
+                  (hour == scheduleHours.firstWhere((h) => h > DateTime.now().hour, orElse: () => 24));
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      decoration: BoxDecoration(
+        color: isPassed ? Colors.grey[200] : Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: isNext 
+            ? Border.all(color: const Color(0xFF00695C), width: 2) 
+            : Border.all(color: Colors.transparent),
+        boxShadow: isPassed 
+            ? [] 
+            : [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.access_time_filled,
+                color: isPassed ? Colors.grey : const Color(0xFF00695C),
+              ),
+              const SizedBox(width: 15),
+              Text(
+                "$hour:00",
+                style: GoogleFonts.montserrat(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isPassed ? Colors.grey : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          if (isPassed)
+            const Icon(Icons.check_circle, color: Colors.green)
+          else
+            Text(
+              "Menunggu",
+              style: TextStyle(
+                color: isNext ? const Color(0xFF00695C) : Colors.grey,
+                fontWeight: isNext ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+        ],
       ),
     );
   }
