@@ -23,6 +23,17 @@ dependencies:
   # Untuk Font mewah (Google Fonts)
   google_fonts: ^6.1.0
 
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_local_notifications: ^17.0.0
+  timezone: ^0.9.0
+  intl: ^0.18.0
+  google_fonts: ^6.1.0
+  # TAMBAHKAN INI (Otak Memori):
+  shared_preferences: ^2.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
