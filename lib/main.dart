@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Import Memori
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'services/notification_service.dart';
 
@@ -10,7 +10,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID', null);
   await NotificationService().initNotification();
-  await NotificationService().scheduleEyeDropReminders();
+  // Kita jadwalkan ulang nanti saat fitur edit jam sudah jadi
+  // await NotificationService().scheduleEyeDropReminders(); 
   
   runApp(const JagaNetraApp());
 }
@@ -21,7 +22,7 @@ class JagaNetraApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'JagaNetra',
+      title: 'Mata Bunda', // Update nama sesuai dokumen
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -49,43 +50,57 @@ class _HomePageState extends State<HomePage> {
   String _timeString = "";
   late Timer _timer;
   
-  // Data Logic
-  Set<int> completedSchedules = {};
-  final List<int> scheduleHours = [6, 9, 12, 15, 18, 21];
-  final String _storageKey = 'completed_schedules';
-  final String _dateKey = 'last_date_opened';
+  // --- DATABASE SEMENTARA ---
+  // Data Tetes Mata
+  Set<int> doneEyeDrops = {};
+  final List<int> scheduleEyeDrops = [6, 9, 12, 15, 18, 21]; // 6x Sehari
+  
+  // Data Minum Obat (BARU)
+  Set<int> doneMedicine = {};
+  final List<int> scheduleMedicine = [7, 13, 19]; // 3x Sehari (Pagi, Siang, Malam)
+
+  // Keys untuk Penyimpanan
+  final String _keyEyeDrops = 'done_eyedrops';
+  final String _keyMedicine = 'done_medicine';
+  final String _keyDate = 'last_date_opened';
 
   @override
   void initState() {
     super.initState();
     _timeString = _formatTime(DateTime.now());
     _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) => _getTime());
-    
-    // Panggil fungsi muat data saat aplikasi dibuka
     _loadData();
   }
 
-  // --- LOGIC PENYIMPANAN DATA PINTAR ---
+  // --- LOGIC PENYIMPANAN PINTAR (DUAL MODE) ---
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
     
-    // 1. Cek Tanggal Terakhir dibuka
-    String lastDate = prefs.getString(_dateKey) ?? "";
+    String lastDate = prefs.getString(_keyDate) ?? "";
     String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    // 2. Jika hari sudah berganti, RESET semua data
+    // Auto Reset jika ganti hari
     if (lastDate != todayDate) {
-      await prefs.setString(_dateKey, todayDate);
-      await prefs.setStringList(_storageKey, []); // Kosongkan list
+      await prefs.setString(_keyDate, todayDate);
+      await prefs.setStringList(_keyEyeDrops, []);
+      await prefs.setStringList(_keyMedicine, []);
       setState(() {
-        completedSchedules = {};
+        doneEyeDrops = {};
+        doneMedicine = {};
       });
     } else {
-      // 3. Jika hari masih sama, muat data yang tersimpan
-      List<String>? savedList = prefs.getStringList(_storageKey);
-      if (savedList != null) {
+      // Load Data Tetes Mata
+      List<String>? savedEye = prefs.getStringList(_keyEyeDrops);
+      if (savedEye != null) {
         setState(() {
-          completedSchedules = savedList.map((e) => int.parse(e)).toSet();
+          doneEyeDrops = savedEye.map((e) => int.parse(e)).toSet();
+        });
+      }
+      // Load Data Minum Obat
+      List<String>? savedMed = prefs.getStringList(_keyMedicine);
+      if (savedMed != null) {
+        setState(() {
+          doneMedicine = savedMed.map((e) => int.parse(e)).toSet();
         });
       }
     }
@@ -93,13 +108,17 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _saveData() async {
     final prefs = await SharedPreferences.getInstance();
-    // Simpan list angka jam sebagai List<String>
-    List<String> stringList = completedSchedules.map((e) => e.toString()).toList();
-    await prefs.setStringList(_storageKey, stringList);
     
-    // Update tanggal hari ini juga untuk memastikan
+    // Simpan Tetes Mata
+    List<String> listEye = doneEyeDrops.map((e) => e.toString()).toList();
+    await prefs.setStringList(_keyEyeDrops, listEye);
+
+    // Simpan Minum Obat
+    List<String> listMed = doneMedicine.map((e) => e.toString()).toList();
+    await prefs.setStringList(_keyMedicine, listMed);
+    
     String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    await prefs.setString(_dateKey, todayDate);
+    await prefs.setString(_keyDate, todayDate);
   }
   // -------------------------------------
 
@@ -107,9 +126,8 @@ class _HomePageState extends State<HomePage> {
     final DateTime now = DateTime.now();
     final String formattedDateTime = _formatTime(now);
     
-    // Logic tambahan: Cek reset otomatis tepat jam 00:00 saat aplikasi terbuka
-    if (formattedDateTime == "00:00" && completedSchedules.isNotEmpty) {
-      _loadData(); // Trigger reset
+    if (formattedDateTime == "00:00" && (doneEyeDrops.isNotEmpty || doneMedicine.isNotEmpty)) {
+      _loadData(); // Trigger reset jam 12 malam
     }
 
     if (mounted) {
@@ -123,15 +141,25 @@ class _HomePageState extends State<HomePage> {
     return DateFormat('HH:mm').format(dateTime);
   }
 
-  void _toggleSchedule(int hour) {
+  void _toggleEyeDrop(int hour) {
     setState(() {
-      if (completedSchedules.contains(hour)) {
-        completedSchedules.remove(hour);
+      if (doneEyeDrops.contains(hour)) {
+        doneEyeDrops.remove(hour);
       } else {
-        completedSchedules.add(hour);
+        doneEyeDrops.add(hour);
       }
     });
-    // Simpan data setiap kali ada perubahan
+    _saveData();
+  }
+
+  void _toggleMedicine(int hour) {
+    setState(() {
+      if (doneMedicine.contains(hour)) {
+        doneMedicine.remove(hour);
+      } else {
+        doneMedicine.add(hour);
+      }
+    });
     _saveData();
   }
 
@@ -143,255 +171,219 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    int nextSchedule = scheduleHours.firstWhere(
-      (h) => h > DateTime.now().hour,
-      orElse: () => scheduleHours[0],
-    );
-
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 30),
-              
-              // --- HEADER CLEAN & MODERN ---
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
+          children: [
+            // --- HEADER TETAP DI ATAS ---
+            _buildHeader(),
+
+            // --- KONTEN SCROLLABLE ---
+            Expanded(
+              child: ListView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        DateFormat('EEEE, d MMM', 'id_ID').format(DateTime.now()),
-                        style: GoogleFonts.poppins(
-                          color: Colors.grey[500],
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "JagaNetra",
-                        style: GoogleFonts.poppins(
-                          color: const Color(0xFF2D3142), // Dark Slate
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    width: 45,
-                    height: 45,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEDF1F7),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.remove_red_eye_outlined,
-                      color: Color(0xFF2D3142),
-                    ),
-                  ),
+                  // BAGIAN 1: TETES MATA
+                  _buildSectionTitle("Jadwal Tetes Mata", Icons.water_drop_outlined),
+                  const SizedBox(height: 15),
+                  ...scheduleEyeDrops.map((hour) => _buildTaskTile(
+                    hour: hour, 
+                    isDone: doneEyeDrops.contains(hour),
+                    onTap: () => _toggleEyeDrop(hour),
+                    type: "Tetes Mata"
+                  )).toList(),
+
+                  const SizedBox(height: 30),
+
+                  // BAGIAN 2: MINUM OBAT (BARU)
+                  _buildSectionTitle("Jadwal Minum Obat", Icons.medication_outlined),
+                  const SizedBox(height: 15),
+                  ...scheduleMedicine.map((hour) => _buildTaskTile(
+                    hour: hour, 
+                    isDone: doneMedicine.contains(hour),
+                    onTap: () => _toggleMedicine(hour),
+                    type: "Minum Obat"
+                  )).toList(),
+                  
+                  const SizedBox(height: 50), // Spasi bawah
                 ],
               ),
-
-              const SizedBox(height: 30),
-
-              // --- HERO CARD (GLASSY BLUE) ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(25),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF2D3142), // Dark Navy
-                      Color(0xFF4C5D7D), // Lighter Navy
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF2D3142).withOpacity(0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            "Jadwal Berikutnya",
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        const Icon(Icons.notifications_active, color: Colors.white70, size: 20),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      _timeString,
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 48,
-                        fontWeight: FontWeight.w600,
-                        height: 1,
-                      ),
-                    ),
-                    Text(
-                      "Target: Pukul $nextSchedule:00",
-                      style: GoogleFonts.poppins(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 35),
-
-              Text(
-                "Rencana Pengobatan",
-                style: GoogleFonts.poppins(
-                  color: const Color(0xFF2D3142),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 15),
-
-              // --- SCROLLABLE LIST ---
-              Expanded(
-                child: ListView.separated(
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: scheduleHours.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final hour = scheduleHours[index];
-                    return _buildModernTaskTile(hour);
-                  },
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildModernTaskTile(int hour) {
-    bool isCompleted = completedSchedules.contains(hour);
-    bool isPassed = DateTime.now().hour >= hour;
-    bool isNext = !isPassed && !isCompleted && 
-        (hour == scheduleHours.firstWhere((h) => h > DateTime.now().hour, orElse: () => 24));
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 30, 24, 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Halo, Bunda 💙", // Sesuai Request
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFF2D3142),
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                DateFormat('EEEE, d MMM yyyy', 'id_ID').format(DateTime.now()),
+                style: GoogleFonts.poppins(
+                  color: Colors.grey[500],
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEDF1F7),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _timeString,
+              style: GoogleFonts.poppins(
+                color: const Color(0xFF2D3142),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    Color textColor = isCompleted ? Colors.grey : const Color(0xFF2D3142);
+  Widget _buildSectionTitle(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, color: const Color(0xFF4F8FC0), size: 24),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: GoogleFonts.poppins(
+            color: const Color(0xFF2D3142),
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTaskTile({
+    required int hour, 
+    required bool isDone, 
+    required VoidCallback onTap,
+    required String type,
+  }) {
+    bool isPassed = DateTime.now().hour >= hour;
+    // Logic highlight: Jika belum lewat jamnya, belum selesai, dan jam terdekat
+    bool isNext = !isPassed && !isDone && 
+        (hour == scheduleEyeDrops.firstWhere((h) => h > DateTime.now().hour, orElse: () => 99) || 
+         hour == scheduleMedicine.firstWhere((h) => h > DateTime.now().hour, orElse: () => 99));
+
+    // Warna status
     Color cardColor = Colors.white;
+    Color iconColor = const Color(0xFF4F8FC0); // Biru Mata Bunda
     
-    if (isNext) {
-      cardColor = Colors.white;
+    if (isDone) {
+      iconColor = Colors.grey;
+    } else if (isNext) {
+      // Highlight tugas berikutnya
+      cardColor = const Color(0xFFF0F7FF); // Biru sangat muda
     }
 
     return GestureDetector(
-      onTap: () => _toggleSchedule(hour),
+      onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
+          border: isNext 
+            ? Border.all(color: const Color(0xFF4F8FC0), width: 1)
+            : Border.all(color: Colors.transparent),
           boxShadow: [
-            if (isNext)
-              BoxShadow(
-                color: const Color(0xFF4F8FC0).withOpacity(0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              )
-            else
-              BoxShadow(
+             BoxShadow(
                 color: Colors.grey.withOpacity(0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
           ],
-          border: isNext 
-            ? Border.all(color: const Color(0xFF4F8FC0), width: 1)
-            : Border.all(color: Colors.transparent),
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isCompleted ? Colors.grey[100] : const Color(0xFFEDF1F7),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.access_time_filled_rounded,
-                size: 20,
-                color: isCompleted ? Colors.grey : const Color(0xFF4F8FC0),
+            // Jam
+            Text(
+              "$hour:00",
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: isDone ? Colors.grey : const Color(0xFF2D3142),
               ),
             ),
-            const SizedBox(width: 15),
+            const SizedBox(width: 20),
             
+            // Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Tetes Mata Obat",
+                    type,
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: Colors.grey[500],
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   Text(
-                    "$hour:00 WIB",
+                    isDone ? "Sudah selesai" : "Waktunya perawatan",
                     style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                      decoration: isCompleted ? TextDecoration.lineThrough : null,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: isDone ? Colors.green : (isPassed ? Colors.redAccent : Colors.grey[700]),
                     ),
                   ),
                 ],
               ),
             ),
 
+            // Checkbox
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: isCompleted ? const Color(0xFF4CAF50) : Colors.transparent,
+                color: isDone ? const Color(0xFF4CAF50) : Colors.transparent,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isCompleted ? Colors.transparent : Colors.grey[300]!,
+                  color: isDone ? Colors.transparent : Colors.grey[300]!,
                   width: 2,
                 ),
               ),
-              child: isCompleted 
+              child: isDone 
                 ? const Icon(Icons.check, size: 16, color: Colors.white)
                 : null,
             ),
