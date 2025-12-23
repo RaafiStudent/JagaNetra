@@ -1,6 +1,6 @@
 name: jaganetra
 description: "Aplikasi asisten pribadi untuk mengingatkan jadwal tetes mata dan minum obat pasca operasi katarak."
-publish_to: 'none' 
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
@@ -9,10 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
+
   # Ikon bawaan iOS
   cupertino_icons: ^1.0.8
-  
+
   # --- LIBRARY TAMBAHAN UNTUK JAGANETRA ---
   # Untuk notifikasi lokal (alarm)
   flutter_local_notifications: ^17.0.0
@@ -22,16 +22,7 @@ dependencies:
   intl: ^0.18.0
   # Untuk Font mewah (Google Fonts)
   google_fonts: ^6.1.0
-
-dependencies:
-  flutter:
-    sdk: flutter
-  cupertino_icons: ^1.0.8
-  flutter_local_notifications: ^17.0.0
-  timezone: ^0.9.0
-  intl: ^0.18.0
-  google_fonts: ^6.1.0
-  # TAMBAHKAN INI (Otak Memori):
+  # Untuk Otak Memori (Penyimpanan Data)
   shared_preferences: ^2.2.0
 
 dev_dependencies:
