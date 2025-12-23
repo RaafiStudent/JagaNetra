@@ -10,8 +10,9 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        // --- PERBAIKAN 1: Mengaktifkan Desugaring ---
-        coreLibraryDesugaringEnabled true
+        // --- SYNTAX KOTLIN YANG BENAR ---
+        // Pakai "isCore..." dan tanda sama dengan "="
+        isCoreLibraryDesugaringEnabled = true
         
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -28,8 +29,9 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         
-        // --- PERBAIKAN 2: Mengaktifkan MultiDex (Penting) ---
-        multiDexEnabled true 
+        // --- SYNTAX KOTLIN YANG BENAR ---
+        // Pakai tanda sama dengan "="
+        multiDexEnabled = true 
     }
 
     buildTypes {
@@ -43,8 +45,8 @@ flutter {
     source = "../.."
 }
 
-// --- PERBAIKAN 3: Menambahkan Library Desugar ---
 dependencies {
-    // Library ini wajib ada untuk flutter_local_notifications di Android lama/baru
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+    // --- SYNTAX KOTLIN YANG BENAR ---
+    // Pakai tanda kurung "()" dan tanda kutip dua ""
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
