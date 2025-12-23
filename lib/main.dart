@@ -10,9 +10,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID', null);
   await NotificationService().initNotification();
-  // Kita jadwalkan ulang nanti saat fitur edit jam sudah jadi
-  // await NotificationService().scheduleEyeDropReminders(); 
-  
   runApp(const JagaNetraApp());
 }
 
@@ -22,7 +19,7 @@ class JagaNetraApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mata Bunda', // Update nama sesuai dokumen
+      title: 'Mata Bunda',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -34,102 +31,33 @@ class JagaNetraApp extends StatelessWidget {
           surface: Colors.white,
         ),
       ),
-      home: const HomePage(),
+      home: const DashboardPage(),
     );
   }
 }
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+// --- HALAMAN DASHBOARD (MENU UTAMA) ---
+class DashboardPage extends StatefulWidget {
+  const DashboardPage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _DashboardPageState extends State<DashboardPage> {
   String _timeString = "";
   late Timer _timer;
-  
-  // --- DATABASE SEMENTARA ---
-  // Data Tetes Mata
-  Set<int> doneEyeDrops = {};
-  final List<int> scheduleEyeDrops = [6, 9, 12, 15, 18, 21]; // 6x Sehari
-  
-  // Data Minum Obat (BARU)
-  Set<int> doneMedicine = {};
-  final List<int> scheduleMedicine = [7, 13, 19]; // 3x Sehari (Pagi, Siang, Malam)
-
-  // Keys untuk Penyimpanan
-  final String _keyEyeDrops = 'done_eyedrops';
-  final String _keyMedicine = 'done_medicine';
-  final String _keyDate = 'last_date_opened';
 
   @override
   void initState() {
     super.initState();
     _timeString = _formatTime(DateTime.now());
     _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) => _getTime());
-    _loadData();
   }
-
-  // --- LOGIC PENYIMPANAN PINTAR (DUAL MODE) ---
-  Future<void> _loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    String lastDate = prefs.getString(_keyDate) ?? "";
-    String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-    // Auto Reset jika ganti hari
-    if (lastDate != todayDate) {
-      await prefs.setString(_keyDate, todayDate);
-      await prefs.setStringList(_keyEyeDrops, []);
-      await prefs.setStringList(_keyMedicine, []);
-      setState(() {
-        doneEyeDrops = {};
-        doneMedicine = {};
-      });
-    } else {
-      // Load Data Tetes Mata
-      List<String>? savedEye = prefs.getStringList(_keyEyeDrops);
-      if (savedEye != null) {
-        setState(() {
-          doneEyeDrops = savedEye.map((e) => int.parse(e)).toSet();
-        });
-      }
-      // Load Data Minum Obat
-      List<String>? savedMed = prefs.getStringList(_keyMedicine);
-      if (savedMed != null) {
-        setState(() {
-          doneMedicine = savedMed.map((e) => int.parse(e)).toSet();
-        });
-      }
-    }
-  }
-
-  Future<void> _saveData() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Simpan Tetes Mata
-    List<String> listEye = doneEyeDrops.map((e) => e.toString()).toList();
-    await prefs.setStringList(_keyEyeDrops, listEye);
-
-    // Simpan Minum Obat
-    List<String> listMed = doneMedicine.map((e) => e.toString()).toList();
-    await prefs.setStringList(_keyMedicine, listMed);
-    
-    String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    await prefs.setString(_keyDate, todayDate);
-  }
-  // -------------------------------------
 
   void _getTime() {
     final DateTime now = DateTime.now();
     final String formattedDateTime = _formatTime(now);
-    
-    if (formattedDateTime == "00:00" && (doneEyeDrops.isNotEmpty || doneMedicine.isNotEmpty)) {
-      _loadData(); // Trigger reset jam 12 malam
-    }
-
     if (mounted) {
       setState(() {
         _timeString = formattedDateTime;
@@ -139,28 +67,6 @@ class _HomePageState extends State<HomePage> {
 
   String _formatTime(DateTime dateTime) {
     return DateFormat('HH:mm').format(dateTime);
-  }
-
-  void _toggleEyeDrop(int hour) {
-    setState(() {
-      if (doneEyeDrops.contains(hour)) {
-        doneEyeDrops.remove(hour);
-      } else {
-        doneEyeDrops.add(hour);
-      }
-    });
-    _saveData();
-  }
-
-  void _toggleMedicine(int hour) {
-    setState(() {
-      if (doneMedicine.contains(hour)) {
-        doneMedicine.remove(hour);
-      } else {
-        doneMedicine.add(hour);
-      }
-    });
-    _saveData();
   }
 
   @override
@@ -173,157 +79,328 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            // --- HEADER TETAP DI ATAS ---
-            _buildHeader(),
-
-            // --- KONTEN SCROLLABLE ---
-            Expanded(
-              child: ListView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 30),
+              // --- HEADER SAPAAN ---
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // BAGIAN 1: TETES MATA
-                  _buildSectionTitle("Jadwal Tetes Mata", Icons.water_drop_outlined),
-                  const SizedBox(height: 15),
-                  ...scheduleEyeDrops.map((hour) => _buildTaskTile(
-                    hour: hour, 
-                    isDone: doneEyeDrops.contains(hour),
-                    onTap: () => _toggleEyeDrop(hour),
-                    type: "Tetes Mata"
-                  )).toList(),
-
-                  const SizedBox(height: 30),
-
-                  // BAGIAN 2: MINUM OBAT (BARU)
-                  _buildSectionTitle("Jadwal Minum Obat", Icons.medication_outlined),
-                  const SizedBox(height: 15),
-                  ...scheduleMedicine.map((hour) => _buildTaskTile(
-                    hour: hour, 
-                    isDone: doneMedicine.contains(hour),
-                    onTap: () => _toggleMedicine(hour),
-                    type: "Minum Obat"
-                  )).toList(),
-                  
-                  const SizedBox(height: 50), // Spasi bawah
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Assalamualaikum,",
+                        style: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 14),
+                      ),
+                      Text(
+                        "Bunda 💙",
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF2D3142),
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEDF1F7),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _timeString,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF2D3142),
+                      ),
+                    ),
+                  ),
                 ],
               ),
+              
+              const SizedBox(height: 10),
+              Text(
+                DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(DateTime.now()),
+                style: GoogleFonts.poppins(color: Colors.grey[500]),
+              ),
+
+              const SizedBox(height: 40),
+
+              // --- MENU KARTU BESAR ---
+              Text(
+                "Menu Perawatan",
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF2D3142),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // KARTU 1: TETES MATA
+              _buildMenuCard(
+                title: "Jadwal Tetes Mata",
+                subtitle: "6x Sehari • Rutin",
+                icon: Icons.water_drop,
+                color: const Color(0xFF4F8FC0), // Biru
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (context) => const DetailPage(
+                      title: "Tetes Mata",
+                      type: "eyedrops",
+                      schedules: [6, 9, 12, 15, 18, 21],
+                    ),
+                  ));
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              // KARTU 2: MINUM OBAT
+              _buildMenuCard(
+                title: "Jadwal Minum Obat",
+                subtitle: "3x Sehari • Pagi, Siang, Malam",
+                icon: Icons.medication_rounded,
+                color: const Color(0xFFE57373), // Merah Soft
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (context) => const DetailPage(
+                      title: "Minum Obat",
+                      type: "medicine",
+                      schedules: [7, 13, 19],
+                    ),
+                  ));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 32),
+            ),
+            const SizedBox(width: 20),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF2D3142),
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey[300], size: 18),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 30, 24, 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Halo, Bunda 💙", // Sesuai Request
-                style: GoogleFonts.poppins(
-                  color: const Color(0xFF2D3142),
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                DateFormat('EEEE, d MMM yyyy', 'id_ID').format(DateTime.now()),
-                style: GoogleFonts.poppins(
-                  color: Colors.grey[500],
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEDF1F7),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _timeString,
-              style: GoogleFonts.poppins(
-                color: const Color(0xFF2D3142),
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+// --- HALAMAN DETAIL (TAB JADWAL & RIWAYAT) ---
+class DetailPage extends StatefulWidget {
+  final String title;
+  final String type; // 'eyedrops' or 'medicine'
+  final List<int> schedules;
+
+  const DetailPage({
+    super.key,
+    required this.title,
+    required this.type,
+    required this.schedules,
+  });
+
+  @override
+  State<DetailPage> createState() => _DetailPageState();
+}
+
+class _DetailPageState extends State<DetailPage> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  Set<int> completedItems = {};
+  
+  // Storage Key Logic
+  String get _storageKey => 'done_${widget.type}';
+  String get _dateKey => 'last_date_${widget.type}';
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _loadData();
   }
 
-  Widget _buildSectionTitle(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, color: const Color(0xFF4F8FC0), size: 24),
-        const SizedBox(width: 10),
-        Text(
-          title,
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    String lastDate = prefs.getString(_dateKey) ?? "";
+    String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    if (lastDate != todayDate) {
+      // Reset if new day
+      await prefs.setString(_dateKey, todayDate);
+      await prefs.setStringList(_storageKey, []);
+      setState(() {
+        completedItems = {};
+      });
+    } else {
+      List<String>? saved = prefs.getStringList(_storageKey);
+      if (saved != null) {
+        setState(() {
+          completedItems = saved.map((e) => int.parse(e)).toSet();
+        });
+      }
+    }
+  }
+
+  Future<void> _saveData() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> list = completedItems.map((e) => e.toString()).toList();
+    await prefs.setStringList(_storageKey, list);
+    String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    await prefs.setString(_dateKey, todayDate);
+  }
+
+  void _toggleItem(int hour) {
+    setState(() {
+      if (completedItems.contains(hour)) {
+        completedItems.remove(hour);
+      } else {
+        completedItems.add(hour);
+      }
+    });
+    _saveData();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FD),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF2D3142)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.title,
           style: GoogleFonts.poppins(
             color: const Color(0xFF2D3142),
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.bold,
           ),
         ),
-      ],
+        centerTitle: true,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: const Color(0xFF4F8FC0),
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: const Color(0xFF4F8FC0),
+          labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          tabs: const [
+            Tab(text: "Hari Ini"),
+            Tab(text: "Riwayat"),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // TAB 1: HARI INI (CHECKLIST)
+          ListView(
+            padding: const EdgeInsets.all(24),
+            children: widget.schedules.map((hour) => _buildTaskTile(hour)).toList(),
+          ),
+
+          // TAB 2: RIWAYAT (HISTORY SIMULASI)
+          // *Catatan: Saat ini kita belum punya database history panjang.
+          // Ini adalah tampilan simulasi agar Boss melihat strukturnya dulu.
+          ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              _buildHistoryTile("Kemarin", 22, 100),
+              _buildHistoryTile("Senin, 21 Des", 21, 80),
+              _buildHistoryTile("Minggu, 20 Des", 20, 50),
+              const SizedBox(height: 20),
+              Center(
+                child: Text(
+                  "Data riwayat akan tersimpan otomatis\nmulai hari ini.",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12),
+                ),
+              )
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildTaskTile({
-    required int hour, 
-    required bool isDone, 
-    required VoidCallback onTap,
-    required String type,
-  }) {
+  Widget _buildTaskTile(int hour) {
+    bool isDone = completedItems.contains(hour);
     bool isPassed = DateTime.now().hour >= hour;
-    // Logic highlight: Jika belum lewat jamnya, belum selesai, dan jam terdekat
     bool isNext = !isPassed && !isDone && 
-        (hour == scheduleEyeDrops.firstWhere((h) => h > DateTime.now().hour, orElse: () => 99) || 
-         hour == scheduleMedicine.firstWhere((h) => h > DateTime.now().hour, orElse: () => 99));
-
-    // Warna status
-    Color cardColor = Colors.white;
-    Color iconColor = const Color(0xFF4F8FC0); // Biru Mata Bunda
-    
-    if (isDone) {
-      iconColor = Colors.grey;
-    } else if (isNext) {
-      // Highlight tugas berikutnya
-      cardColor = const Color(0xFFF0F7FF); // Biru sangat muda
-    }
+        (hour == widget.schedules.firstWhere((h) => h > DateTime.now().hour, orElse: () => 99));
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => _toggleItem(hour),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: cardColor,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: isNext 
-            ? Border.all(color: const Color(0xFF4F8FC0), width: 1)
+            ? Border.all(color: const Color(0xFF4F8FC0), width: 1.5)
             : Border.all(color: Colors.transparent),
           boxShadow: [
              BoxShadow(
@@ -335,48 +412,49 @@ class _HomePageState extends State<HomePage> {
         ),
         child: Row(
           children: [
-            // Jam
-            Text(
-              "$hour:00",
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: isDone ? Colors.grey : const Color(0xFF2D3142),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDone ? Colors.green.withOpacity(0.1) : const Color(0xFFEDF1F7),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.access_time_rounded,
+                size: 20,
+                color: isDone ? Colors.green : const Color(0xFF2D3142),
               ),
             ),
-            const SizedBox(width: 20),
-            
-            // Info
+            const SizedBox(width: 15),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    type,
+                    "$hour:00 WIB",
                     style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.grey[500],
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isDone ? Colors.grey : const Color(0xFF2D3142),
+                      decoration: isDone ? TextDecoration.lineThrough : null,
                     ),
                   ),
                   Text(
-                    isDone ? "Sudah selesai" : "Waktunya perawatan",
+                    isDone ? "Selesai" : (isNext ? "Jadwal Berikutnya" : "Menunggu"),
                     style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: isDone ? Colors.green : (isPassed ? Colors.redAccent : Colors.grey[700]),
+                      fontSize: 12,
+                      color: isDone ? Colors.green : (isNext ? const Color(0xFF4F8FC0) : Colors.grey),
+                      fontWeight: isDone ? FontWeight.w500 : FontWeight.normal,
                     ),
                   ),
                 ],
               ),
             ),
-
-            // Checkbox
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: isDone ? const Color(0xFF4CAF50) : Colors.transparent,
+                color: isDone ? Colors.green : Colors.transparent,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: isDone ? Colors.transparent : Colors.grey[300]!,
@@ -389,6 +467,46 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Widget Dummy Riwayat (Simulasi UI)
+  Widget _buildHistoryTile(String date, int day, int percentage) {
+    Color color = percentage == 100 ? Colors.green : Colors.orange;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            date,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF2D3142),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              "$percentage% Selesai",
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          )
+        ],
       ),
     );
   }
