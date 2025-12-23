@@ -23,11 +23,11 @@ class JagaNetraApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF8F9FD),
+        scaffoldBackgroundColor: const Color(0xFFF8F9FD), // Background Putih Kebiruan (Bersih)
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2D3142),
+          seedColor: const Color(0xFF2D3142), // Royal Navy
           primary: const Color(0xFF2D3142),
-          secondary: const Color(0xFF4F8FC0),
+          secondary: const Color(0xFF4F8FC0), // Soft Blue
           surface: Colors.white,
         ),
       ),
@@ -78,6 +78,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FD),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -85,51 +86,104 @@ class _DashboardPageState extends State<DashboardPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 30),
+              // --- HEADER PREMIUM ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Assalamualaikum,", style: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 14)),
-                      Text("Bunda 💙", style: GoogleFonts.poppins(color: const Color(0xFF2D3142), fontSize: 26, fontWeight: FontWeight.bold)),
+                      Text(
+                        "Assalamualaikum,",
+                        style: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        "Bunda 💙",
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF2D3142),
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
                     ],
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEDF1F7),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
                     ),
-                    child: Text(_timeString, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: const Color(0xFF2D3142))),
+                    child: Text(
+                      _timeString,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF2D3142),
+                        fontSize: 16,
+                      ),
+                    ),
                   ),
                 ],
               ),
+              
               const SizedBox(height: 10),
-              Text(DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(DateTime.now()), style: GoogleFonts.poppins(color: Colors.grey[500])),
+              Text(
+                DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(DateTime.now()),
+                style: GoogleFonts.poppins(color: Colors.grey[500], fontWeight: FontWeight.w500),
+              ),
+
               const SizedBox(height: 40),
-              Text("Menu Perawatan", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF2D3142))),
+
+              // --- MENU KARTU (CLEAN STYLE) ---
+              Text(
+                "Menu Perawatan",
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF2D3142),
+                ),
+              ),
               const SizedBox(height: 20),
+
+              // KARTU 1: TETES MATA (Design Bintang 5)
               _buildMenuCard(
                 title: "Jadwal Tetes Mata",
                 subtitle: "6x Sehari • Rutin",
-                icon: Icons.water_drop,
-                color: const Color(0xFF4F8FC0),
+                icon: Icons.water_drop_outlined,
+                color: const Color(0xFF4F8FC0), // Soft Blue
                 onTap: () {
                   Navigator.push(context, MaterialPageRoute(
-                    builder: (context) => const DetailPage(title: "Tetes Mata", type: "eyedrops", schedules: [6, 9, 12, 15, 18, 21]),
+                    builder: (context) => const DetailPage(
+                      title: "Tetes Mata",
+                      type: "eyedrops",
+                      schedules: [6, 9, 12, 15, 18, 21],
+                    ),
                   ));
                 },
               ),
+
               const SizedBox(height: 20),
+
+              // KARTU 2: MINUM OBAT
               _buildMenuCard(
                 title: "Jadwal Minum Obat",
                 subtitle: "3x Sehari • Pagi, Siang, Malam",
-                icon: Icons.medication_rounded,
-                color: const Color(0xFFE57373),
+                icon: Icons.medication_outlined,
+                color: const Color(0xFFE57373), // Soft Red
                 onTap: () {
                   Navigator.push(context, MaterialPageRoute(
-                    builder: (context) => const DetailPage(title: "Minum Obat", type: "medicine", schedules: [7, 13, 19]),
+                    builder: (context) => const DetailPage(
+                      title: "Minum Obat",
+                      type: "medicine",
+                      schedules: [7, 13, 19],
+                    ),
                   ));
                 },
               ),
@@ -140,7 +194,13 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildMenuCard({required String title, required String subtitle, required IconData icon, required Color color, required VoidCallback onTap}) {
+  Widget _buildMenuCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -149,18 +209,55 @@ class _DashboardPageState extends State<DashboardPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10))],
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2D3142).withOpacity(0.05), // Shadow biru tua sangat tipis
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 32)),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(18), // Lebih kotak sedikit (Modern)
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
             const SizedBox(width: 20),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF2D3142))),
-              Text(subtitle, style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500])),
-            ]),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF2D3142),
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
             const Spacer(),
-            Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey[300], size: 18),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey[300], size: 14),
+            ),
           ],
         ),
       ),
@@ -168,13 +265,18 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-// --- HALAMAN DETAIL UTAMA ---
+// --- HALAMAN DETAIL (KEMBALI KE DESAIN HERO CARD) ---
 class DetailPage extends StatefulWidget {
   final String title;
   final String type;
   final List<int> schedules;
 
-  const DetailPage({super.key, required this.title, required this.type, required this.schedules});
+  const DetailPage({
+    super.key,
+    required this.title,
+    required this.type,
+    required this.schedules,
+  });
 
   @override
   State<DetailPage> createState() => _DetailPageState();
@@ -226,32 +328,108 @@ class _DetailPageState extends State<DetailPage> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    // Logic untuk Hero Card (Next Schedule)
+    int nextSchedule = widget.schedules.firstWhere(
+      (h) => h > DateTime.now().hour,
+      orElse: () => widget.schedules[0],
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF2D3142)), onPressed: () => Navigator.pop(context)),
-        title: Text(widget.title, style: GoogleFonts.poppins(color: const Color(0xFF2D3142), fontWeight: FontWeight.bold)),
+        leading: IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF2D3142), size: 18),
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.title,
+          style: GoogleFonts.poppins(color: const Color(0xFF2D3142), fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         bottom: TabBar(
           controller: _tabController,
           labelColor: const Color(0xFF4F8FC0),
-          unselectedLabelColor: Colors.grey,
+          unselectedLabelColor: Colors.grey[400],
           indicatorColor: const Color(0xFF4F8FC0),
+          indicatorWeight: 3,
           labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          tabs: const [Tab(text: "Hari Ini"), Tab(text: "Riwayat")],
+          tabs: const [
+            Tab(text: "Hari Ini"),
+            Tab(text: "Riwayat"),
+          ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          ListView(padding: const EdgeInsets.all(24), children: widget.schedules.map((hour) => _buildTaskTile(hour)).toList()),
-          // TAB RIWAYAT
+          // TAB 1: HARI INI (DENGAN HERO CARD MEWAH)
           ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              // Simulasi Data Riwayat
+              // --- HERO CARD (GLASSY BLUE) - DIKEMBALIKAN ---
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(25),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2D3142), Color(0xFF4C5D7D)], // Gradient Navy Mewah
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2D3142).withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                          child: Text("Jadwal Berikutnya", style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                        ),
+                        const Icon(Icons.notifications_active, color: Colors.white70, size: 20),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    Text(
+                      "$nextSchedule:00",
+                      style: GoogleFonts.poppins(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w600, height: 1),
+                    ),
+                    Text(
+                      "Waktu Indonesia Barat",
+                      style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
+              
+              Text("Daftar Tugas", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF2D3142))),
+              const SizedBox(height: 15),
+
+              ...widget.schedules.map((hour) => _buildTaskTile(hour)).toList(),
+            ],
+          ),
+
+          // TAB 2: RIWAYAT
+          ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
               _buildHistoryCard(context, "Kemarin", "22 Des 2025", 100, true),
               _buildHistoryCard(context, "Senin", "21 Des 2025", 80, false),
               _buildHistoryCard(context, "Minggu", "20 Des 2025", 50, false),
@@ -272,46 +450,68 @@ class _DetailPageState extends State<DetailPage> with SingleTickerProviderStateM
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18), // Padding lebih lega
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: isNext ? Border.all(color: const Color(0xFF4F8FC0), width: 1.5) : Border.all(color: Colors.transparent),
-          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+          borderRadius: BorderRadius.circular(18),
+          border: isNext ? Border.all(color: const Color(0xFF4F8FC0), width: 1) : Border.all(color: Colors.transparent),
+          boxShadow: [
+             if (isNext)
+               BoxShadow(color: const Color(0xFF4F8FC0).withOpacity(0.15), blurRadius: 15, offset: const Offset(0, 8))
+             else
+               BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
         ),
         child: Row(
           children: [
-            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: isDone ? Colors.green.withOpacity(0.1) : const Color(0xFFEDF1F7), borderRadius: BorderRadius.circular(10)), child: Icon(Icons.access_time_rounded, size: 20, color: isDone ? Colors.green : const Color(0xFF2D3142))),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDone ? Colors.grey[100] : const Color(0xFFEDF1F7),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.access_time_filled_rounded, size: 20, color: isDone ? Colors.grey : const Color(0xFF4F8FC0)),
+            ),
             const SizedBox(width: 15),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("$hour:00 WIB", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: isDone ? Colors.grey : const Color(0xFF2D3142), decoration: isDone ? TextDecoration.lineThrough : null)), Text(isDone ? "Selesai" : (isNext ? "Jadwal Berikutnya" : "Menunggu"), style: GoogleFonts.poppins(fontSize: 12, color: isDone ? Colors.green : (isNext ? const Color(0xFF4F8FC0) : Colors.grey), fontWeight: isDone ? FontWeight.w500 : FontWeight.normal))])),
-            AnimatedContainer(duration: const Duration(milliseconds: 300), width: 28, height: 28, decoration: BoxDecoration(color: isDone ? Colors.green : Colors.transparent, shape: BoxShape.circle, border: Border.all(color: isDone ? Colors.transparent : Colors.grey[300]!, width: 2)), child: isDone ? const Icon(Icons.check, size: 16, color: Colors.white) : null),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Waktunya Perawatan", style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500)),
+                  Text("$hour:00 WIB", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: isDone ? Colors.grey : const Color(0xFF2D3142), decoration: isDone ? TextDecoration.lineThrough : null)),
+                ],
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: 28, height: 28,
+              decoration: BoxDecoration(
+                color: isDone ? const Color(0xFF4CAF50) : Colors.transparent,
+                shape: BoxShape.circle,
+                border: Border.all(color: isDone ? Colors.transparent : Colors.grey[300]!, width: 2),
+              ),
+              child: isDone ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
+            ),
           ],
         ),
       ),
     );
   }
 
-  // Widget Kartu Riwayat yang BISA DIKLIK
   Widget _buildHistoryCard(BuildContext context, String dayName, String fullDate, int percentage, bool perfect) {
     Color color = percentage == 100 ? Colors.green : Colors.orange;
-    
     return GestureDetector(
       onTap: () {
-        // Navigasi ke Halaman Detail Riwayat (HistoryDetailPage)
         Navigator.push(context, MaterialPageRoute(
-          builder: (context) => HistoryDetailPage(
-            dateTitle: "$dayName, $fullDate",
-            schedules: widget.schedules,
-            isPerfect: perfect, // Simulasi data
-          ),
+          builder: (context) => HistoryDetailPage(dateTitle: "$dayName, $fullDate", schedules: widget.schedules, isPerfect: perfect),
         ));
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
         ),
         child: Row(
@@ -342,18 +542,13 @@ class _DetailPageState extends State<DetailPage> with SingleTickerProviderStateM
   }
 }
 
-// --- HALAMAN DETAIL RIWAYAT (BARU) ---
+// --- HALAMAN DETAIL RIWAYAT ---
 class HistoryDetailPage extends StatelessWidget {
   final String dateTitle;
   final List<int> schedules;
   final bool isPerfect;
 
-  const HistoryDetailPage({
-    super.key,
-    required this.dateTitle,
-    required this.schedules,
-    required this.isPerfect,
-  });
+  const HistoryDetailPage({super.key, required this.dateTitle, required this.schedules, required this.isPerfect});
 
   @override
   Widget build(BuildContext context) {
@@ -363,7 +558,11 @@ class HistoryDetailPage extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF2D3142)),
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF2D3142), size: 18),
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text("Riwayat", style: GoogleFonts.poppins(color: const Color(0xFF2D3142), fontWeight: FontWeight.bold)),
@@ -374,21 +573,14 @@ class HistoryDetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Text(
-                dateTitle,
-                style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF2D3142)),
-              ),
-            ),
+            Center(child: Text(dateTitle, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF2D3142)))),
             const SizedBox(height: 30),
             Expanded(
               child: ListView.builder(
                 itemCount: schedules.length,
                 itemBuilder: (context, index) {
                   int hour = schedules[index];
-                  // Simulasi: Jika isPerfect=true, semua dicentang. Jika tidak, ada yang bolong.
-                  bool isDone = isPerfect ? true : (index % 2 == 0); 
-                  
+                  bool isDone = isPerfect ? true : (index % 2 == 0);
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -403,9 +595,7 @@ class HistoryDetailPage extends StatelessWidget {
                         const SizedBox(width: 15),
                         Text("$hour:00 WIB", style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF2D3142))),
                         const Spacer(),
-                        isDone 
-                          ? const Icon(Icons.check_circle, color: Colors.green)
-                          : const Icon(Icons.cancel, color: Colors.redAccent),
+                        isDone ? const Icon(Icons.check_circle, color: Colors.green) : const Icon(Icons.cancel, color: Colors.redAccent),
                       ],
                     ),
                   );
