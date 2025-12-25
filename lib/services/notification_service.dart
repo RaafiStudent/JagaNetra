@@ -16,14 +16,19 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   Future<void> initNotification() async {
-    // Inisialisasi Timezone
     tz.initializeTimeZones();
 
-    // Setup Android
+    // Pastikan lokasi waktu Indonesia (Asia/Jakarta)
+    // Jika error lokasi, dia akan default ke local device setting
+    try {
+      tz.setLocalLocation(tz.getLocation('Asia/Jakarta'));
+    } catch (e) {
+      // Fallback to device timezone
+    }
+
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // Setup iOS (jika nanti butuh)
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -40,19 +45,35 @@ class NotificationService {
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
-  // Fungsi untuk menjadwalkan notifikasi
-  Future<void> scheduleEyeDropReminders() async {
-    // Jadwal: 6 kali sehari, setiap 3 jam
-    // Misal mulai jam 06:00 pagi sampai 21:00 malam
-    // Jam: 06, 09, 12, 15, 18, 21
-    List<int> scheduleHours = [6, 9, 12, 15, 18, 21];
+  // --- FITUR BARU: JADWAL DINAMIS (MENIT PRESISI) ---
+  // type: 'eyedrops' (ID 0-99) atau 'medicine' (ID 100-199)
+  Future<void> scheduleCustomReminders({
+    required List<int> scheduleMinutes, 
+    required String type, 
+    required String title,
+    required String body,
+  }) async {
+    
+    // 1. Tentukan Range ID agar tidak bentrok
+    int startId = type == 'eyedrops' ? 0 : 100;
+    
+    // 2. Hapus dulu jadwal lama untuk tipe ini
+    for (int i = 0; i < 20; i++) {
+      await flutterLocalNotificationsPlugin.cancel(startId + i);
+    }
 
-    for (int i = 0; i < scheduleHours.length; i++) {
+    // 3. Pasang Jadwal Baru
+    for (int i = 0; i < scheduleMinutes.length; i++) {
+      int totalMinutes = scheduleMinutes[i];
+      int hour = totalMinutes ~/ 60;
+      int minute = totalMinutes % 60;
+      
       await _scheduleDailyNotification(
-        id: i,
-        title: 'Waktunya Tetes Mata Mamah ❤️',
-        body: 'Jadwal jam ${scheduleHours[i]}:00. Jangan lupa tetes mata agar lekas sembuh.',
-        hour: scheduleHours[i],
+        id: startId + i,
+        title: title,
+        body: "$body (Pukul ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')})",
+        hour: hour,
+        minute: minute,
       );
     }
   }
@@ -62,40 +83,47 @@ class NotificationService {
     required String title,
     required String body,
     required int hour,
+    required int minute,
   }) async {
     await flutterLocalNotificationsPlugin.zonedSchedule(
       id,
       title,
       body,
-      _nextInstanceOfHour(hour),
+      _nextInstanceOfTime(hour, minute),
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'channel_eye_drops',
-          'Pengingat Tetes Mata',
-          channelDescription: 'Notifikasi jadwal tetes mata rutin',
+          'channel_jaganetra_main', // ID Channel
+          'Pengingat Rutin', // Nama Channel
+          channelDescription: 'Notifikasi untuk jadwal obat dan tetes mata',
           importance: Importance.max,
           priority: Priority.high,
           playSound: true,
+          // sound: RawResourceAndroidNotificationSound('alarm_sound'), // Jika mau custom sound nanti
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time, // Ulangi setiap hari di jam yg sama
+      matchDateTimeComponents: DateTimeComponents.time, // Ulangi setiap hari di jam:menit yang sama
     );
   }
 
-  tz.TZDateTime _nextInstanceOfHour(int hour) {
+  tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
     tz.TZDateTime scheduledDate =
-        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour);
+        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
     return scheduledDate;
   }
   
-  // Fungsi untuk membatalkan semua notifikasi (jika perlu reset)
+  // Fungsi batalkan semua (untuk debugging/reset)
   Future<void> cancelAllNotifications() async {
     await flutterLocalNotificationsPlugin.cancelAll();
   }
