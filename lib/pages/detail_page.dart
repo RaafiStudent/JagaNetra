@@ -14,10 +14,8 @@ class DetailPage extends StatefulWidget {
     super.key,
     required this.title,
     required this.type,
-    // PERBAIKAN DI SINI:
-    // Hapus 'this.', ganti dengan tipe data 'List<int>'
     required List<int> schedules, 
-  }) : defaultSchedules = schedules; // Oper data 'schedules' ke 'defaultSchedules'
+  }) : defaultSchedules = schedules; 
 
   @override
   State<DetailPage> createState() => _DetailPageState();
@@ -108,13 +106,16 @@ class _DetailPageState extends State<DetailPage>
     _saveChecklist();
   }
 
+  // --- LOGIC BARU: EDIT JAM PINTAR ---
   Future<void> _editTime(int index, int oldHour) async {
     HapticFeedback.mediumImpact(); 
     
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: oldHour, minute: 0),
-      helpText: "UBAH JAM PERAWATAN",
+      helpText: index == 0 && widget.type == 'eyedrops' 
+          ? "ATUR JAM PERTAMA" 
+          : "UBAH JAM PERAWATAN",
       builder: (context, child) {
         return Theme(
           data: ThemeData.light().copyWith(
@@ -130,23 +131,72 @@ class _DetailPageState extends State<DetailPage>
     );
 
     if (picked != null) {
+      // LOGIC BARU: Jika ini Tetes Mata DAN user mengubah jadwal pertama (Index 0)
+      if (widget.type == 'eyedrops' && index == 0) {
+        // Tampilkan Dialog Konfirmasi Canggih
+        bool? isAuto = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text("Atur Otomatis?", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+            content: Text(
+              "Anda mengubah jam pertama ke ${picked.hour}:00.\n\nApakah Anda ingin jadwal berikutnya otomatis menyesuaikan (+3 jam)?",
+              style: GoogleFonts.poppins(),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false), // Tidak, Manual saja
+                child: const Text("Manual Saja", style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F8FC0)),
+                onPressed: () => Navigator.pop(ctx, true), // Ya, Otomatis
+                child: const Text("Ya, Otomatis", style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+
+        if (isAuto == true) {
+          // GENERATE OTOMATIS 6 JADWAL
+          setState(() {
+             completedItems.clear(); // Reset centang biar aman
+             currentSchedules.clear();
+             
+             int startHour = picked.hour;
+             for(int i=0; i<6; i++) {
+               // Tambah 3 jam, jika lewat 24 jam pakai modulo
+               int nextHour = (startHour + (i * 3)) % 24; 
+               currentSchedules.add(nextHour);
+             }
+             currentSchedules.sort();
+          });
+          
+          await _saveSchedule();
+          _showSuccessSnackbar("Semua jadwal berhasil diperbarui otomatis!");
+          return; // Selesai, keluar fungsi
+        }
+      }
+
+      // Logic Edit Biasa (Manual)
       setState(() {
         completedItems.remove(oldHour);
         currentSchedules[index] = picked.hour;
         currentSchedules.sort(); 
       });
       await _saveSchedule();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Jadwal berhasil diubah ke jam ${picked.hour}:00", 
-              style: GoogleFonts.poppins()),
-            backgroundColor: const Color(0xFF2D3142),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      _showSuccessSnackbar("Jadwal berhasil diubah ke jam ${picked.hour}:00");
+    }
+  }
+  
+  void _showSuccessSnackbar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message, style: GoogleFonts.poppins()),
+          backgroundColor: const Color(0xFF2D3142),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -299,10 +349,13 @@ class _DetailPageState extends State<DetailPage>
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFF2D3142))),
-                   Text("Tekan lama untuk ubah jam",
-                      style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          color: Colors.grey)),
+                   // Petunjuk kecil agar user tahu bisa diedit
+                   if(widget.type == 'eyedrops')
+                     Text("Tekan lama jam pertama utk Auto",
+                        style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontStyle: FontStyle.italic,
+                            color: const Color(0xFF4F8FC0))),
                 ],
               ),
              
@@ -384,11 +437,13 @@ class _DetailPageState extends State<DetailPage>
                 children: [
                   Row(
                     children: [
-                      Text("Waktunya Perawatan",
+                      Text(
+                        // Teks beda utk jam pertama biar jelas
+                        (index == 0 && widget.type == 'eyedrops') ? "Jam Mulai (Tekan Tahan)" : "Waktunya Perawatan",
                           style: GoogleFonts.poppins(
                               fontSize: 12,
-                              color: Colors.grey[500],
-                              fontWeight: FontWeight.w500)),
+                              color: (index == 0 && widget.type == 'eyedrops') ? const Color(0xFF4F8FC0) : Colors.grey[500],
+                              fontWeight: (index == 0 && widget.type == 'eyedrops') ? FontWeight.bold : FontWeight.w500)),
                       if(!isDone)
                         const SizedBox(width: 5),
                       if(!isDone)
