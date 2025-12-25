@@ -2,20 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/services.dart'; // Untuk Haptic Feedback (Getar)
+import 'package:flutter/services.dart';
 import 'history_detail_page.dart';
 
 class DetailPage extends StatefulWidget {
   final String title;
   final String type;
-  final List<int> defaultSchedules; // Variabel penampung jadwal bawaan
+  final List<int> defaultSchedules; // List Jam (misal: 6, 9, 12...)
 
   const DetailPage({
     super.key,
     required this.title,
     required this.type,
-    required List<int> schedules, 
-  }) : defaultSchedules = schedules; 
+    required List<int> schedules,
+  }) : defaultSchedules = schedules;
 
   @override
   State<DetailPage> createState() => _DetailPageState();
@@ -24,15 +24,15 @@ class DetailPage extends StatefulWidget {
 class _DetailPageState extends State<DetailPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
-  // Data Jadwal & Status Checklist
+
+  // PENTING: Sekarang menyimpan "Total Menit" (bukan jam saja)
+  // Contoh: Jam 01:00 = 60, Jam 01:30 = 90
   List<int> currentSchedules = [];
   Set<int> completedItems = {};
 
-  // Keys Penyimpanan
   String get _keyDone => 'done_${widget.type}';
   String get _keyDate => 'last_date_${widget.type}';
-  String get _keySchedule => 'schedule_${widget.type}'; 
+  String get _keySchedule => 'schedule_${widget.type}';
 
   @override
   void initState() {
@@ -41,24 +41,41 @@ class _DetailPageState extends State<DetailPage>
     _loadAllData();
   }
 
-  // --- LOGIC LOADING DATA ---
+  // --- FORMATTER HELPER ---
+  // Mengubah angka menit (misal 395) menjadi teks "06:35"
+  String _formatMinutes(int totalMinutes) {
+    int h = totalMinutes ~/ 60;
+    int m = totalMinutes % 60;
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+  }
+
   Future<void> _loadAllData() async {
     final prefs = await SharedPreferences.getInstance();
-    
-    // 1. Load Jadwal (Schedule)
+
+    // 1. Load Jadwal
     List<String>? savedSch = prefs.getStringList(_keySchedule);
     if (savedSch != null && savedSch.isNotEmpty) {
       setState(() {
         currentSchedules = savedSch.map((e) => int.parse(e)).toList();
-        currentSchedules.sort(); 
+        
+        // MIGRASI OTOMATIS: 
+        // Jika data lama masih satuan JAM (< 24), ubah ke MENIT (* 60)
+        // Agar aplikasi tidak error saat update dari versi lama
+        for(int i=0; i<currentSchedules.length; i++) {
+          if (currentSchedules[i] < 24) {
+            currentSchedules[i] = currentSchedules[i] * 60;
+          }
+        }
+        currentSchedules.sort();
       });
     } else {
+      // Load Default (Konversi Jam ke Menit)
       setState(() {
-        currentSchedules = List.from(widget.defaultSchedules);
+        currentSchedules = widget.defaultSchedules.map((h) => h * 60).toList();
       });
     }
 
-    // 2. Load Status Checklist (Centang)
+    // 2. Load Checklist
     String lastDate = prefs.getString(_keyDate) ?? "";
     String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
@@ -78,7 +95,6 @@ class _DetailPageState extends State<DetailPage>
     }
   }
 
-  // --- LOGIC SIMPAN DATA ---
   Future<void> _saveChecklist() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
@@ -93,36 +109,39 @@ class _DetailPageState extends State<DetailPage>
         _keySchedule, currentSchedules.map((e) => e.toString()).toList());
   }
 
-  // --- INTERAKSI USER ---
-  void _toggleItem(int hour) {
-    HapticFeedback.lightImpact(); 
+  void _toggleItem(int totalMinutes) {
+    HapticFeedback.lightImpact();
     setState(() {
-      if (completedItems.contains(hour)) {
-        completedItems.remove(hour);
+      if (completedItems.contains(totalMinutes)) {
+        completedItems.remove(totalMinutes);
       } else {
-        completedItems.add(hour);
+        completedItems.add(totalMinutes);
       }
     });
     _saveChecklist();
   }
 
-  // --- LOGIC BARU: EDIT JAM PINTAR ---
-  Future<void> _editTime(int index, int oldHour) async {
-    HapticFeedback.mediumImpact(); 
-    
+  // --- LOGIC EDIT JAM PRESISI ---
+  Future<void> _editTime(int index, int oldTotalMinutes) async {
+    HapticFeedback.mediumImpact();
+
+    // Konversi menit lama ke TimeOfDay untuk ditampilkan di picker
+    int initialHour = oldTotalMinutes ~/ 60;
+    int initialMinute = oldTotalMinutes % 60;
+
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay(hour: oldHour, minute: 0),
-      helpText: index == 0 && widget.type == 'eyedrops' 
-          ? "ATUR JAM PERTAMA" 
+      initialTime: TimeOfDay(hour: initialHour, minute: initialMinute),
+      helpText: index == 0 && widget.type == 'eyedrops'
+          ? "ATUR JAM PERTAMA"
           : "UBAH JAM PERAWATAN",
       builder: (context, child) {
         return Theme(
           data: ThemeData.light().copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF2D3142), 
+              primary: Color(0xFF2D3142),
               onPrimary: Colors.white,
-              onSurface: Color(0xFF2D3142), 
+              onSurface: Color(0xFF2D3142),
             ),
           ),
           child: child!,
@@ -131,63 +150,67 @@ class _DetailPageState extends State<DetailPage>
     );
 
     if (picked != null) {
-      // LOGIC BARU: Jika ini Tetes Mata DAN user mengubah jadwal pertama (Index 0)
+      // Hitung Total Menit Baru
+      int newTotalMinutes = (picked.hour * 60) + picked.minute;
+
       if (widget.type == 'eyedrops' && index == 0) {
-        // Tampilkan Dialog Konfirmasi Canggih
         bool? isAuto = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: Text("Atur Otomatis?", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+            title: Text("Atur Otomatis?",
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
             content: Text(
-              "Anda mengubah jam pertama ke ${picked.hour}:00.\n\nApakah Anda ingin jadwal berikutnya otomatis menyesuaikan (+3 jam)?",
+              "Anda mengubah jam pertama ke ${_formatMinutes(newTotalMinutes)}.\n\nApakah jadwal berikutnya otomatis menyesuaikan (+3 jam)?",
               style: GoogleFonts.poppins(),
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(ctx, false), // Tidak, Manual saja
-                child: const Text("Manual Saja", style: TextStyle(color: Colors.grey)),
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("Manual Saja",
+                    style: TextStyle(color: Colors.grey)),
               ),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F8FC0)),
-                onPressed: () => Navigator.pop(ctx, true), // Ya, Otomatis
-                child: const Text("Ya, Otomatis", style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F8FC0)),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text("Ya, Otomatis",
+                    style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
         );
 
         if (isAuto == true) {
-          // GENERATE OTOMATIS 6 JADWAL
           setState(() {
-             completedItems.clear(); // Reset centang biar aman
-             currentSchedules.clear();
-             
-             int startHour = picked.hour;
-             for(int i=0; i<6; i++) {
-               // Tambah 3 jam, jika lewat 24 jam pakai modulo
-               int nextHour = (startHour + (i * 3)) % 24; 
-               currentSchedules.add(nextHour);
-             }
-             currentSchedules.sort();
+            completedItems.clear(); // Reset checklist
+            currentSchedules.clear();
+
+            int startMinutes = newTotalMinutes;
+            for (int i = 0; i < 6; i++) {
+              // Tambah 180 menit (3 jam) setiap interval
+              int nextMinutes = (startMinutes + (i * 180)) % 1440; // 1440 = 24 jam x 60 menit
+              currentSchedules.add(nextMinutes);
+            }
+            currentSchedules.sort();
           });
-          
+
           await _saveSchedule();
-          _showSuccessSnackbar("Semua jadwal berhasil diperbarui otomatis!");
-          return; // Selesai, keluar fungsi
+          _showSuccessSnackbar("Semua jadwal berhasil diperbarui!");
+          return;
         }
       }
 
-      // Logic Edit Biasa (Manual)
+      // Manual Update
       setState(() {
-        completedItems.remove(oldHour);
-        currentSchedules[index] = picked.hour;
-        currentSchedules.sort(); 
+        completedItems.remove(oldTotalMinutes);
+        currentSchedules[index] = newTotalMinutes;
+        currentSchedules.sort();
       });
       await _saveSchedule();
-      _showSuccessSnackbar("Jadwal berhasil diubah ke jam ${picked.hour}:00");
+      _showSuccessSnackbar("Jadwal diubah ke ${_formatMinutes(newTotalMinutes)}");
     }
   }
-  
+
   void _showSuccessSnackbar(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -202,10 +225,13 @@ class _DetailPageState extends State<DetailPage>
 
   @override
   Widget build(BuildContext context) {
+    // Cari jadwal berikutnya (Logic Menit)
+    int currentMinutesNow = (DateTime.now().hour * 60) + DateTime.now().minute;
     int nextSchedule = 0;
+    
     if (currentSchedules.isNotEmpty) {
-        nextSchedule = currentSchedules.firstWhere(
-        (h) => h > DateTime.now().hour,
+       nextSchedule = currentSchedules.firstWhere(
+        (m) => m > currentMinutesNow,
         orElse: () => currentSchedules[0],
       );
     }
@@ -234,27 +260,34 @@ class _DetailPageState extends State<DetailPage>
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.grey),
-            tooltip: "Reset Jadwal ke Awal",
+            tooltip: "Reset Jadwal",
             onPressed: () async {
-               showDialog(
+              showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: Text("Reset Jadwal?", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-                  content: Text("Jadwal akan kembali ke pengaturan awal dokter.", style: GoogleFonts.poppins()),
+                  title: Text("Reset Jadwal?",
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+                  content: Text("Kembali ke pengaturan awal dokter.",
+                      style: GoogleFonts.poppins()),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Batal")),
                     TextButton(
-                      onPressed: () {
-                         setState(() {
-                           currentSchedules = List.from(widget.defaultSchedules);
-                           completedItems.clear();
-                         });
-                         _saveSchedule();
-                         _saveChecklist();
-                         Navigator.pop(ctx);
-                      }, 
-                      child: const Text("Reset", style: TextStyle(color: Colors.red))
-                    ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text("Batal")),
+                    TextButton(
+                        onPressed: () {
+                          setState(() {
+                            // Reset ke default (Konversi jam default ke menit)
+                            currentSchedules = widget.defaultSchedules
+                                .map((h) => h * 60)
+                                .toList();
+                            completedItems.clear();
+                          });
+                          _saveSchedule();
+                          _saveChecklist();
+                          Navigator.pop(ctx);
+                        },
+                        child: const Text("Reset",
+                            style: TextStyle(color: Colors.red))),
                   ],
                 ),
               );
@@ -324,7 +357,7 @@ class _DetailPageState extends State<DetailPage>
                     ),
                     const SizedBox(height: 15),
                     Text(
-                      "$nextSchedule:00",
+                      _formatMinutes(nextSchedule), // Tampilkan format HH:mm
                       style: GoogleFonts.poppins(
                           color: Colors.white,
                           fontSize: 48,
@@ -340,31 +373,30 @@ class _DetailPageState extends State<DetailPage>
                 ),
               ),
               const SizedBox(height: 30),
-              
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                   Text("Daftar Tugas",
+                  Text("Daftar Tugas",
                       style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFF2D3142))),
-                   // Petunjuk kecil agar user tahu bisa diedit
-                   if(widget.type == 'eyedrops')
-                     Text("Tekan lama jam pertama utk Auto",
+                  if (widget.type == 'eyedrops')
+                    Text("Tekan lama jam pertama utk Auto",
                         style: GoogleFonts.poppins(
                             fontSize: 10,
                             fontStyle: FontStyle.italic,
                             color: const Color(0xFF4F8FC0))),
                 ],
               ),
-             
+
               const SizedBox(height: 15),
-              
+
               ...currentSchedules.asMap().entries.map((entry) {
-                 int index = entry.key;
-                 int hour = entry.value;
-                 return _buildTaskTile(index, hour);
+                int index = entry.key;
+                int totalMinutes = entry.value;
+                return _buildTaskTile(index, totalMinutes);
               }).toList(),
             ],
           ),
@@ -383,18 +415,21 @@ class _DetailPageState extends State<DetailPage>
     );
   }
 
-  Widget _buildTaskTile(int index, int hour) {
-    bool isDone = completedItems.contains(hour);
-    bool isPassed = DateTime.now().hour >= hour;
+  Widget _buildTaskTile(int index, int totalMinutes) {
+    bool isDone = completedItems.contains(totalMinutes);
+    
+    int currentMinutesNow = (DateTime.now().hour * 60) + DateTime.now().minute;
+    bool isPassed = currentMinutesNow >= totalMinutes;
+    
     bool isNext = !isPassed &&
         !isDone &&
-        (hour ==
-            currentSchedules.firstWhere((h) => h > DateTime.now().hour,
-                orElse: () => 99));
+        (totalMinutes ==
+            currentSchedules.firstWhere((m) => m > currentMinutesNow,
+                orElse: () => 9999));
 
     return GestureDetector(
-      onTap: () => _toggleItem(hour), 
-      onLongPress: () => _editTime(index, hour), 
+      onTap: () => _toggleItem(totalMinutes),
+      onLongPress: () => _editTime(index, totalMinutes),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 12),
@@ -438,19 +473,24 @@ class _DetailPageState extends State<DetailPage>
                   Row(
                     children: [
                       Text(
-                        // Teks beda utk jam pertama biar jelas
-                        (index == 0 && widget.type == 'eyedrops') ? "Jam Mulai (Tekan Tahan)" : "Waktunya Perawatan",
+                          (index == 0 && widget.type == 'eyedrops')
+                              ? "Jam Mulai (Tekan Tahan)"
+                              : "Waktunya Perawatan",
                           style: GoogleFonts.poppins(
                               fontSize: 12,
-                              color: (index == 0 && widget.type == 'eyedrops') ? const Color(0xFF4F8FC0) : Colors.grey[500],
-                              fontWeight: (index == 0 && widget.type == 'eyedrops') ? FontWeight.bold : FontWeight.w500)),
-                      if(!isDone)
-                        const SizedBox(width: 5),
-                      if(!isDone)
+                              color: (index == 0 && widget.type == 'eyedrops')
+                                  ? const Color(0xFF4F8FC0)
+                                  : Colors.grey[500],
+                              fontWeight:
+                                  (index == 0 && widget.type == 'eyedrops')
+                                      ? FontWeight.bold
+                                      : FontWeight.w500)),
+                      if (!isDone) const SizedBox(width: 5),
+                      if (!isDone)
                         const Icon(Icons.edit, size: 10, color: Colors.grey)
                     ],
                   ),
-                  Text("$hour:00 WIB",
+                  Text(_formatMinutes(totalMinutes) + " WIB", // Tampilkan format HH:mm
                       style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -484,6 +524,8 @@ class _DetailPageState extends State<DetailPage>
   Widget _buildHistoryCard(BuildContext context, String dayName,
       String fullDate, int percentage, bool perfect) {
     Color color = percentage == 100 ? Colors.green : Colors.orange;
+    // Note: HistoryDetailPage juga perlu update jika ingin menampilkan history secara akurat,
+    // tapi untuk sekarang kita fokus ke detail hari ini dulu.
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -491,7 +533,7 @@ class _DetailPageState extends State<DetailPage>
             MaterialPageRoute(
               builder: (context) => HistoryDetailPage(
                   dateTitle: "$dayName, $fullDate",
-                  schedules: currentSchedules, 
+                  schedules: currentSchedules.map((m) => m ~/ 60).toList(), // Konversi balik ke jam untuk simulasi history
                   isPerfect: perfect),
             ));
       },
