@@ -2,19 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'history_detail_page.dart'; // Import halaman anak
+import 'package:flutter/services.dart'; // Untuk Haptic Feedback (Getar)
+import 'history_detail_page.dart';
 
 class DetailPage extends StatefulWidget {
   final String title;
   final String type;
-  final List<int> schedules;
+  final List<int> defaultSchedules; // Jadwal Bawaan (Default)
 
   const DetailPage({
     super.key,
     required this.title,
     required this.type,
-    required this.schedules,
-  });
+    required this.schedules, // Masuk ke variable defaultSchedules
+  }) : defaultSchedules = schedules;
 
   @override
   State<DetailPage> createState() => _DetailPageState();
@@ -23,62 +24,155 @@ class DetailPage extends StatefulWidget {
 class _DetailPageState extends State<DetailPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  
+  // Data Jadwal & Status Checklist
+  List<int> currentSchedules = [];
   Set<int> completedItems = {};
-  String get _storageKey => 'done_${widget.type}';
-  String get _dateKey => 'last_date_${widget.type}';
+
+  // Keys Penyimpanan
+  String get _keyDone => 'done_${widget.type}';
+  String get _keyDate => 'last_date_${widget.type}';
+  String get _keySchedule => 'schedule_${widget.type}'; // Key baru untuk simpan jadwal
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadData();
+    _loadAllData();
   }
 
-  Future<void> _loadData() async {
+  // --- LOGIC LOADING DATA (CANGGIH) ---
+  Future<void> _loadAllData() async {
     final prefs = await SharedPreferences.getInstance();
-    String lastDate = prefs.getString(_dateKey) ?? "";
+    
+    // 1. Load Jadwal (Schedule)
+    List<String>? savedSch = prefs.getStringList(_keySchedule);
+    if (savedSch != null && savedSch.isNotEmpty) {
+      // Jika ada jadwal custom yang tersimpan, pakai itu
+      setState(() {
+        currentSchedules = savedSch.map((e) => int.parse(e)).toList();
+        currentSchedules.sort(); // Urutkan biar rapi
+      });
+    } else {
+      // Jika belum ada, pakai default dari Dashboard
+      setState(() {
+        currentSchedules = List.from(widget.defaultSchedules);
+      });
+    }
+
+    // 2. Load Status Checklist (Centang)
+    String lastDate = prefs.getString(_keyDate) ?? "";
     String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     if (lastDate != todayDate) {
-      await prefs.setString(_dateKey, todayDate);
-      await prefs.setStringList(_storageKey, []);
+      // Reset jika ganti hari
+      await prefs.setString(_keyDate, todayDate);
+      await prefs.setStringList(_keyDone, []);
       setState(() {
         completedItems = {};
       });
     } else {
-      List<String>? saved = prefs.getStringList(_storageKey);
-      if (saved != null) {
+      // Load checklist hari ini
+      List<String>? savedDone = prefs.getStringList(_keyDone);
+      if (savedDone != null) {
         setState(() {
-          completedItems = saved.map((e) => int.parse(e)).toSet();
+          completedItems = savedDone.map((e) => int.parse(e)).toSet();
         });
       }
     }
   }
 
-  Future<void> _saveData() async {
+  // --- LOGIC SIMPAN DATA ---
+  Future<void> _saveChecklist() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
-        _storageKey, completedItems.map((e) => e.toString()).toList());
+        _keyDone, completedItems.map((e) => e.toString()).toList());
     await prefs.setString(
-        _dateKey, DateFormat('yyyy-MM-dd').format(DateTime.now()));
+        _keyDate, DateFormat('yyyy-MM-dd').format(DateTime.now()));
   }
 
+  Future<void> _saveSchedule() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Simpan list jadwal jam ke memori
+    await prefs.setStringList(
+        _keySchedule, currentSchedules.map((e) => e.toString()).toList());
+  }
+
+  // --- INTERAKSI USER ---
   void _toggleItem(int hour) {
+    HapticFeedback.lightImpact(); // Efek getar ringan (Premium Feel)
     setState(() {
-      if (completedItems.contains(hour))
+      if (completedItems.contains(hour)) {
         completedItems.remove(hour);
-      else
+      } else {
         completedItems.add(hour);
+      }
     });
-    _saveData();
+    _saveChecklist();
+  }
+
+  // Fungsi Edit Jam (Pop Up Time Picker)
+  Future<void> _editTime(int index, int oldHour) async {
+    HapticFeedback.mediumImpact(); // Getar saat mau edit
+    
+    // Tampilkan Time Picker Bawaan Android/iOS
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: oldHour, minute: 0),
+      helpText: "UBAH JAM PERAWATAN",
+      builder: (context, child) {
+        // Custom warna TimePicker biar sesuai tema Royal Navy
+        return Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF2D3142), // Header Navy
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF2D3142), // Angka Navy
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      // Update Jadwal
+      setState(() {
+        // Hapus jam lama dari checklist jika ada
+        completedItems.remove(oldHour);
+        
+        // Ganti jam di list
+        currentSchedules[index] = picked.hour;
+        currentSchedules.sort(); // Urutkan ulang otomatis
+      });
+      
+      // Simpan perubahan jadwal permanen
+      await _saveSchedule();
+      
+      // Tampilkan notifikasi kecil di bawah (Snackbar)
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Jadwal berhasil diubah ke jam ${picked.hour}:00", 
+              style: GoogleFonts.poppins()),
+            backgroundColor: const Color(0xFF2D3142),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    int nextSchedule = widget.schedules.firstWhere(
-      (h) => h > DateTime.now().hour,
-      orElse: () => widget.schedules[0],
-    );
+    // Cari jadwal berikutnya berdasarkan list yang AKTIF (currentSchedules)
+    int nextSchedule = 0;
+    if (currentSchedules.isNotEmpty) {
+        nextSchedule = currentSchedules.firstWhere(
+        (h) => h > DateTime.now().hour,
+        orElse: () => currentSchedules[0],
+      );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
@@ -101,6 +195,38 @@ class _DetailPageState extends State<DetailPage>
               color: const Color(0xFF2D3142), fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
+        actions: [
+          // Tombol Reset Jadwal (Optional, buat jaga-jaga)
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.grey),
+            tooltip: "Reset Jadwal ke Awal",
+            onPressed: () async {
+              // Confirm Dialog dulu
+               showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text("Reset Jadwal?", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+                  content: Text("Jadwal akan kembali ke pengaturan awal dokter.", style: GoogleFonts.poppins()),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Batal")),
+                    TextButton(
+                      onPressed: () {
+                         setState(() {
+                           currentSchedules = List.from(widget.defaultSchedules);
+                           completedItems.clear();
+                         });
+                         _saveSchedule();
+                         _saveChecklist();
+                         Navigator.pop(ctx);
+                      }, 
+                      child: const Text("Reset", style: TextStyle(color: Colors.red))
+                    ),
+                  ],
+                ),
+              );
+            },
+          )
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: const Color(0xFF4F8FC0),
@@ -180,13 +306,31 @@ class _DetailPageState extends State<DetailPage>
                 ),
               ),
               const SizedBox(height: 30),
-              Text("Daftar Tugas",
-                  style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF2D3142))),
+              
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                   Text("Daftar Tugas",
+                      style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF2D3142))),
+                   Text("Tekan lama untuk ubah jam",
+                      style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          color: Colors.grey)),
+                ],
+              ),
+             
               const SizedBox(height: 15),
-              ...widget.schedules.map((hour) => _buildTaskTile(hour)).toList(),
+              
+              // LOOPING JADWAL DARI DATABASE (Bukan Hardcode lagi)
+              // Kita pakai .asMap() untuk dapat index biar bisa diedit
+              ...currentSchedules.asMap().entries.map((entry) {
+                 int index = entry.key;
+                 int hour = entry.value;
+                 return _buildTaskTile(index, hour);
+              }).toList(),
             ],
           ),
 
@@ -204,17 +348,18 @@ class _DetailPageState extends State<DetailPage>
     );
   }
 
-  Widget _buildTaskTile(int hour) {
+  Widget _buildTaskTile(int index, int hour) {
     bool isDone = completedItems.contains(hour);
     bool isPassed = DateTime.now().hour >= hour;
     bool isNext = !isPassed &&
         !isDone &&
         (hour ==
-            widget.schedules.firstWhere((h) => h > DateTime.now().hour,
+            currentSchedules.firstWhere((h) => h > DateTime.now().hour,
                 orElse: () => 99));
 
     return GestureDetector(
-      onTap: () => _toggleItem(hour),
+      onTap: () => _toggleItem(hour), // Klik biasa untuk Centang
+      onLongPress: () => _editTime(index, hour), // Tekan Lama untuk Edit Jam
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 12),
@@ -255,11 +400,19 @@ class _DetailPageState extends State<DetailPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Waktunya Perawatan",
-                      style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                          fontWeight: FontWeight.w500)),
+                  Row(
+                    children: [
+                      Text("Waktunya Perawatan",
+                          style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                              fontWeight: FontWeight.w500)),
+                      if(!isDone)
+                        const SizedBox(width: 5),
+                      if(!isDone)
+                        const Icon(Icons.edit, size: 10, color: Colors.grey) // Ikon pensil kecil
+                    ],
+                  ),
                   Text("$hour:00 WIB",
                       style: GoogleFonts.poppins(
                           fontSize: 16,
@@ -291,6 +444,7 @@ class _DetailPageState extends State<DetailPage>
     );
   }
 
+  // ... (Widget HistoryCard tetap sama seperti sebelumnya) ...
   Widget _buildHistoryCard(BuildContext context, String dayName,
       String fullDate, int percentage, bool perfect) {
     Color color = percentage == 100 ? Colors.green : Colors.orange;
@@ -301,7 +455,7 @@ class _DetailPageState extends State<DetailPage>
             MaterialPageRoute(
               builder: (context) => HistoryDetailPage(
                   dateTitle: "$dayName, $fullDate",
-                  schedules: widget.schedules,
+                  schedules: currentSchedules, // Pass jadwal yang aktif
                   isPerfect: perfect),
             ));
       },
