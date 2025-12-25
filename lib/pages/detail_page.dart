@@ -8,14 +8,16 @@ import 'history_detail_page.dart';
 class DetailPage extends StatefulWidget {
   final String title;
   final String type;
-  final List<int> defaultSchedules; // Jadwal Bawaan (Default)
+  final List<int> defaultSchedules; // Variabel penampung jadwal bawaan
 
   const DetailPage({
     super.key,
     required this.title,
     required this.type,
-    required this.schedules, // Masuk ke variable defaultSchedules
-  }) : defaultSchedules = schedules;
+    // PERBAIKAN DI SINI:
+    // Hapus 'this.', ganti dengan tipe data 'List<int>'
+    required List<int> schedules, 
+  }) : defaultSchedules = schedules; // Oper data 'schedules' ke 'defaultSchedules'
 
   @override
   State<DetailPage> createState() => _DetailPageState();
@@ -32,7 +34,7 @@ class _DetailPageState extends State<DetailPage>
   // Keys Penyimpanan
   String get _keyDone => 'done_${widget.type}';
   String get _keyDate => 'last_date_${widget.type}';
-  String get _keySchedule => 'schedule_${widget.type}'; // Key baru untuk simpan jadwal
+  String get _keySchedule => 'schedule_${widget.type}'; 
 
   @override
   void initState() {
@@ -41,20 +43,18 @@ class _DetailPageState extends State<DetailPage>
     _loadAllData();
   }
 
-  // --- LOGIC LOADING DATA (CANGGIH) ---
+  // --- LOGIC LOADING DATA ---
   Future<void> _loadAllData() async {
     final prefs = await SharedPreferences.getInstance();
     
     // 1. Load Jadwal (Schedule)
     List<String>? savedSch = prefs.getStringList(_keySchedule);
     if (savedSch != null && savedSch.isNotEmpty) {
-      // Jika ada jadwal custom yang tersimpan, pakai itu
       setState(() {
         currentSchedules = savedSch.map((e) => int.parse(e)).toList();
-        currentSchedules.sort(); // Urutkan biar rapi
+        currentSchedules.sort(); 
       });
     } else {
-      // Jika belum ada, pakai default dari Dashboard
       setState(() {
         currentSchedules = List.from(widget.defaultSchedules);
       });
@@ -65,14 +65,12 @@ class _DetailPageState extends State<DetailPage>
     String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     if (lastDate != todayDate) {
-      // Reset jika ganti hari
       await prefs.setString(_keyDate, todayDate);
       await prefs.setStringList(_keyDone, []);
       setState(() {
         completedItems = {};
       });
     } else {
-      // Load checklist hari ini
       List<String>? savedDone = prefs.getStringList(_keyDone);
       if (savedDone != null) {
         setState(() {
@@ -93,14 +91,13 @@ class _DetailPageState extends State<DetailPage>
 
   Future<void> _saveSchedule() async {
     final prefs = await SharedPreferences.getInstance();
-    // Simpan list jadwal jam ke memori
     await prefs.setStringList(
         _keySchedule, currentSchedules.map((e) => e.toString()).toList());
   }
 
   // --- INTERAKSI USER ---
   void _toggleItem(int hour) {
-    HapticFeedback.lightImpact(); // Efek getar ringan (Premium Feel)
+    HapticFeedback.lightImpact(); 
     setState(() {
       if (completedItems.contains(hour)) {
         completedItems.remove(hour);
@@ -111,23 +108,20 @@ class _DetailPageState extends State<DetailPage>
     _saveChecklist();
   }
 
-  // Fungsi Edit Jam (Pop Up Time Picker)
   Future<void> _editTime(int index, int oldHour) async {
-    HapticFeedback.mediumImpact(); // Getar saat mau edit
+    HapticFeedback.mediumImpact(); 
     
-    // Tampilkan Time Picker Bawaan Android/iOS
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: oldHour, minute: 0),
       helpText: "UBAH JAM PERAWATAN",
       builder: (context, child) {
-        // Custom warna TimePicker biar sesuai tema Royal Navy
         return Theme(
           data: ThemeData.light().copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF2D3142), // Header Navy
+              primary: Color(0xFF2D3142), 
               onPrimary: Colors.white,
-              onSurface: Color(0xFF2D3142), // Angka Navy
+              onSurface: Color(0xFF2D3142), 
             ),
           ),
           child: child!,
@@ -136,20 +130,13 @@ class _DetailPageState extends State<DetailPage>
     );
 
     if (picked != null) {
-      // Update Jadwal
       setState(() {
-        // Hapus jam lama dari checklist jika ada
         completedItems.remove(oldHour);
-        
-        // Ganti jam di list
         currentSchedules[index] = picked.hour;
-        currentSchedules.sort(); // Urutkan ulang otomatis
+        currentSchedules.sort(); 
       });
-      
-      // Simpan perubahan jadwal permanen
       await _saveSchedule();
       
-      // Tampilkan notifikasi kecil di bawah (Snackbar)
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -165,7 +152,6 @@ class _DetailPageState extends State<DetailPage>
 
   @override
   Widget build(BuildContext context) {
-    // Cari jadwal berikutnya berdasarkan list yang AKTIF (currentSchedules)
     int nextSchedule = 0;
     if (currentSchedules.isNotEmpty) {
         nextSchedule = currentSchedules.firstWhere(
@@ -196,12 +182,10 @@ class _DetailPageState extends State<DetailPage>
         ),
         centerTitle: true,
         actions: [
-          // Tombol Reset Jadwal (Optional, buat jaga-jaga)
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.grey),
             tooltip: "Reset Jadwal ke Awal",
             onPressed: () async {
-              // Confirm Dialog dulu
                showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
@@ -324,8 +308,6 @@ class _DetailPageState extends State<DetailPage>
              
               const SizedBox(height: 15),
               
-              // LOOPING JADWAL DARI DATABASE (Bukan Hardcode lagi)
-              // Kita pakai .asMap() untuk dapat index biar bisa diedit
               ...currentSchedules.asMap().entries.map((entry) {
                  int index = entry.key;
                  int hour = entry.value;
@@ -358,8 +340,8 @@ class _DetailPageState extends State<DetailPage>
                 orElse: () => 99));
 
     return GestureDetector(
-      onTap: () => _toggleItem(hour), // Klik biasa untuk Centang
-      onLongPress: () => _editTime(index, hour), // Tekan Lama untuk Edit Jam
+      onTap: () => _toggleItem(hour), 
+      onLongPress: () => _editTime(index, hour), 
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 12),
@@ -410,7 +392,7 @@ class _DetailPageState extends State<DetailPage>
                       if(!isDone)
                         const SizedBox(width: 5),
                       if(!isDone)
-                        const Icon(Icons.edit, size: 10, color: Colors.grey) // Ikon pensil kecil
+                        const Icon(Icons.edit, size: 10, color: Colors.grey)
                     ],
                   ),
                   Text("$hour:00 WIB",
@@ -444,7 +426,6 @@ class _DetailPageState extends State<DetailPage>
     );
   }
 
-  // ... (Widget HistoryCard tetap sama seperti sebelumnya) ...
   Widget _buildHistoryCard(BuildContext context, String dayName,
       String fullDate, int percentage, bool perfect) {
     Color color = percentage == 100 ? Colors.green : Colors.orange;
@@ -455,7 +436,7 @@ class _DetailPageState extends State<DetailPage>
             MaterialPageRoute(
               builder: (context) => HistoryDetailPage(
                   dateTitle: "$dayName, $fullDate",
-                  schedules: currentSchedules, // Pass jadwal yang aktif
+                  schedules: currentSchedules, 
                   isPerfect: perfect),
             ));
       },
